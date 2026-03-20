@@ -66,7 +66,7 @@ void MX_FREERTOS_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  SCB->VTOR = FLASH_BASE | 0x00019000;
+  SCB->VTOR = FLASH_BASE | 0x00008000;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
