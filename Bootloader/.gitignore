@@ -1,0 +1,141 @@
+# =================================
+# Keil MDK-ARM Specific Files
+# =================================
+
+# clang generated files
+.cache/
+*.idx
+compile_commands.json
+
+# Keil Build Output Files
+*.lst
+*.o
+*.d
+*.crf
+*.lnp
+*.axf
+*.htm
+*.build_log.htm
+*.dep
+*.iex
+*.i
+*_2i
+*.l2p
+*.fed
+*.map
+*.hex
+*.bin
+*.Bak
+Objects/
+
+
+
+# Keil User Settings Files (Personal Configurations, Should Not Be Shared)
+*.uvguix.*
+*.uvgui.*
+# *.uvoptx
+
+# =================================
+# Debugger Related Files
+# =================================
+
+# J-Link Debugger Files
+JLinkLog.txt
+JLinkSettings.ini
+*.dbgconf
+
+# ST-Link Debugger Files
+*.stlink
+
+# =================================
+# IDE and Editor Files
+# =================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Cluade Code
+.cluade/
+
+# IAR Embedded Workbench
+settings/
+Release/
+*.eww
+*.ewd
+*.ewt
+
+# CLion
+.idea/
+cmake-build-*/
+
+# =================================
+# STM32CubeMX/STM32CubeIDE Generated Files
+# =================================
+
+# CubeMX build files
+Core/Startup/startup_*.s
+cmake
+CMakeCache.txt
+*.cmake
+CMakeFiles/
+Makefile
+build/
+CMakeLists.txt
+
+# =================================
+# Operating System Files
+# =================================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# =================================
+# Logs and Temporary Files
+# =================================
+
+# Log Files
+*.log
+*.txt.log
+keil-build-viewer-record.txt
+keil-build-viewer.log
+
+# Temporary Files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Backup Files
+*.bak
+*.bkp
+*.backup
+*.orig
+
+# =================================
+# Other Tool Generated Files
+# =================================
+
+# SysConfig Generated Files
+*.scvd
+
+# Doxygen Generated Files
+docs/html/
+docs/latex/
