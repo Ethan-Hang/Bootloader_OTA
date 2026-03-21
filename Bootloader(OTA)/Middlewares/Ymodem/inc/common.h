@@ -28,7 +28,7 @@ typedef void (*pFunction)(void);
 #define CMD_STRING_SIZE     128
 
 // 计算上传文件大小
-#define FLASH_IMAGE_SIZE    (uint32_t)(FLASH_SIZE - (BackAppAddress - 0x08000000))
+#define FLASH_IMAGE_SIZE    (uint32_t)(FLASH_SIZE - (AppAddress - 0x08000000))
 
 #define IS_AF(c)            ((c >= 'A') && (c <= 'F'))
 #define IS_af(c)            ((c >= 'a') && (c <= 'f'))

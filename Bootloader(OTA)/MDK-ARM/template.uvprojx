@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F411xE</Define>
               <Undefine></Undefine>
-              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc</IncludePath>
+              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc;..\Middlewares\AES\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -419,11 +419,6 @@
               <FileName>flash.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\Src\flash.c</FilePath>
-            </File>
-            <File>
-              <FileName>bootmanager.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Tasks\Bootmanager\src\bootmanager.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1649,7 +1644,24 @@
           <GroupName>User</GroupName>
         </Group>
         <Group>
-          <GroupName>Tasks</GroupName>
+          <GroupName>Tasks/Bootmanager</GroupName>
+          <Files>
+            <File>
+              <FileName>bootmanager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Tasks\Bootmanager\src\bootmanager.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Middlewares/Aes</GroupName>
+          <Files>
+            <File>
+              <FileName>aes.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middlewares\AES\src\aes.c</FilePath>
+            </File>
+          </Files>
         </Group>
       </Groups>
     </Target>

@@ -15,7 +15,6 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
 /* Private define ------------------------------------------------------------*/
-#define APP_FLASH_ADDR 0x08008000
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 static __IO uint32_t uwTimingDelay;
@@ -65,43 +64,64 @@ int main(void)
 
     elog_init();
     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
-    elog_set_fmt(ELOG_LVL_ERROR , ELOG_FMT_LVL | ELOG_FMT_TAG);
-    elog_set_fmt(ELOG_LVL_WARN  , ELOG_FMT_LVL | ELOG_FMT_TAG);
-    elog_set_fmt(ELOG_LVL_INFO  , ELOG_FMT_LVL | ELOG_FMT_TAG);
-    elog_set_fmt(ELOG_LVL_DEBUG , ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_start();
 
-    int32_t buf_size = 0;
-    buf_size = Ymodem_Receive(NULL);  /* buf parameter is no longer used, data goes directly to Flash */
-    log_i("Ymodem receive complete, file size: %d bytes", buf_size);
+    // TIM_Config();
 
-    /* Check if OTA was successful (positive size) */
-    if (buf_size > 0)
+    if (key_scan())
     {
-        log_i("OTA success! Jumping to application at 0x%08x", BackAppAddress);
-        delay_ms(100);  /* Brief delay before jump */
-        jump_to_app();
-        /* Never return here if jump is successful */
+        int32_t buf_size = 0;
+        buf_size = Ymodem_Receive(NULL); /* buf parameter is no longer used,
+                                            data goes directly to Flash */
+        log_i("Ymodem receive complete, file size: %d bytes", buf_size);
+
+        int8_t result = back_to_app(buf_size);
+        if (result != 0)
+        {
+            log_e("Failed to copy application image to main Flash");
+        }
+        else
+        {
+            log_i("Application image copied to main Flash successfully");
+            jump_to_app();
+        }        
     }
     else
     {
-        log_e("OTA failed or no data received (size: %d)", buf_size);
-        log_i("Remaining in bootloader...");
+        jump_to_app();
     }
-    // TIM_Config();
+
+
     /* Infinite loop */
     while (1)
     {
-        log_i("This is a info log.");
-        delay_ms(500);   
+        if (key_scan())
+        {
+            int32_t buf_size = 0;
+            buf_size = Ymodem_Receive(NULL);
+            
+            log_i("Ymodem receive complete, file size: %d bytes", buf_size);
+
+            int8_t result = back_to_app(buf_size);
+            if (result == 0)
+            {
+                log_i("Application image copied to main Flash successfully");
+                jump_to_app();
+            }
+            else
+            {
+                log_e("Failed to copy application image to main Flash");
+            }
+        }
+        delay_ms(50);
     }
 }
 
-/**
- * @brief  Inserts a delay time.
- * @param  nTime: specifies the delay time length, in milliseconds.
- * @retval None
- */
+
 void delay_ms(__IO uint32_t nTime)
 {
     uwTimingDelay = nTime;
@@ -110,11 +130,6 @@ void delay_ms(__IO uint32_t nTime)
         ;
 }
 
-/**
- * @brief  Decrements the TimingDelay variable.
- * @param  None
- * @retval None
- */
 void TimingDelay_Decrement(void)
 {
     if (uwTimingDelay != 0x00)

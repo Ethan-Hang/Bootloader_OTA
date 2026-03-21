@@ -28,6 +28,7 @@
 #include "stm32f4xx_flash.h"
 #include "elog.h"
 #include "flash.h"
+#include "bootmanager.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -35,7 +36,7 @@
 /* Private variables ---------------------------------------------------------*/
 uint8_t        file_name[FILE_NAME_LENGTH];
 uint32_t       FlashDestination = BackAppAddress;
-uint16_t       PageSize         = PAGE_SIZE;
+uint32_t       PageSize         = PAGE_SIZE;
 uint32_t       EraseCounter     = 0x0;
 uint32_t       NbrOfPage        = 0;
 FLASH_Status   FLASHStatus      = FLASH_COMPLETE;
@@ -179,7 +180,9 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         }
 
         /* Erase Flash sectors for application storage */
-        elog_info("FileInfo", "Erasing Flash: addr=0x%08x, size=%d bytes", BackAppAddress, ctx->size);
+        elog_info("FileInfo",
+                  "Erasing Backup Flash: addr=0x%08x, size=%d bytes",
+                  BackAppAddress, ctx->size);
         uint8_t erase_result = Flash_erase(BackAppAddress, ctx->size);
         if (erase_result != 0)
         {
@@ -193,8 +196,8 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         Send_Byte(ACK);
         Send_Byte(CRC16);
         elog_debug("FileInfo", "Transition to FILE_DATA state");
-        ctx->bytes_received = 0;  /* Reset byte counter for new file */
-        ctx->state = YMODEM_RX_STATE_FILE_DATA;
+        ctx->bytes_received = 0; /* Reset byte counter for new file */
+        ctx->state          = YMODEM_RX_STATE_FILE_DATA;
         return (int32_t)YMODEM_RX_HANDLER_CONTINUE;
     }
     /* Filename packet is empty, end session */
@@ -226,8 +229,8 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
         }
 
         // Program data to Flash in 32-bit words
-        uint8_t  *src_ptr = ctx->packet_data + PACKET_HEADER;
-        uint32_t  flash_addr = FlashDestination;
+        uint8_t *src_ptr    = ctx->packet_data + PACKET_HEADER;
+        uint32_t flash_addr = FlashDestination;
 
         elog_debug("FileData", "Programming Flash: offset=%d/%d (%d bytes)",
                    ctx->bytes_received, ctx->size, bytes_to_copy);
@@ -236,7 +239,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
         for (int32_t i = 0; i < bytes_to_copy; i += 4)
         {
             // Get 32-bit word from packet (handle last partial word)
-            uint32_t word_data = 0xFFFFFFFF;
+            uint32_t word_data  = 0xFFFFFFFF;
             int32_t  bytes_left = bytes_to_copy - i;
 
             if (bytes_left >= 4)
@@ -260,7 +263,9 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
             // Verify the write (critical check!)
             if (*(uint32_t *)(flash_addr) != word_data)
             {
-                elog_error("FileData", "Flash write verification failed at 0x%08x", flash_addr);
+                elog_error("FileData",
+                           "Flash write verification failed at 0x%08x",
+                           flash_addr);
                 Send_Byte(CA);
                 Send_Byte(CA);
                 return (int32_t)YMODEM_RX_HANDLER_ERROR;
@@ -343,52 +348,57 @@ int32_t Ymodem_Receive(uint8_t *buf)
                     Send_Byte(ACK);
                     if (ctx.state == YMODEM_RX_STATE_FILE_DATA)
                     {
-                        /* First EOT: transition back to FILE_INFO for EOF packet */
-                        ctx.state = YMODEM_RX_STATE_FILE_INFO;
+                        /* First EOT: transition back to FILE_INFO for EOF
+                         * packet */
+                        ctx.state     = YMODEM_RX_STATE_FILE_INFO;
                         ctx.file_done = 1;
-                        elog_debug("Ymodem", "EOT received, waiting for EOF packet...");
+                        elog_debug("Ymodem",
+                                   "EOT received, waiting for EOF packet...");
                     }
                     else if (ctx.state == YMODEM_RX_STATE_FILE_INFO)
                     {
                         /* Second EOT or EOF packet received, end session */
-                        ctx.file_done = 1;
+                        ctx.file_done    = 1;
                         ctx.session_done = 1;
-                        elog_info("Ymodem", "Session complete, file transfer successful");
+                        elog_info("Ymodem",
+                                  "Session complete, file transfer successful");
                     }
                     break;
                 /* Normal packet */
                 default:
+                {
+                    uint8_t pkt_seqno =
+                        ctx.packet_data[PACKET_SEQNO_INDEX] & 0xff;
+                    uint8_t exp_seqno = ctx.packets_received & 0xff;
+
+                    /* Debug: Print sequence number */
+                    elog_debug("Packet", "Seqno: %d Expected: %d", pkt_seqno,
+                               exp_seqno);
+
+                    if (pkt_seqno != exp_seqno)
                     {
-                        uint8_t pkt_seqno = ctx.packet_data[PACKET_SEQNO_INDEX] & 0xff;
-                        uint8_t exp_seqno = ctx.packets_received & 0xff;
-
-                        /* Debug: Print sequence number */
-                        elog_debug("Packet", "Seqno: %d Expected: %d", pkt_seqno, exp_seqno);
-
-                        if (pkt_seqno != exp_seqno)
-                        {
-                            elog_warn("Packet", "Sequence mismatch, sending NAK");
-                            Send_Byte(NAK);
-                        }
-                        else
-                        {
-                            /* Call state handler function pointer */
-                            state_result = state_handlers[ctx.state](&ctx);
-                            if (state_result == (int32_t)YMODEM_RX_HANDLER_ERROR)
-                            {
-                                return state_result;
-                            }
-                            if (state_result == (int32_t)YMODEM_RX_HANDLER_DONE)
-                            {
-                                /* State handler indicates completion */
-                                break;
-                            }
-                            /* YMODEM_RX_HANDLER_CONTINUE: proceed normally */
-
-                            ctx.packets_received++;
-                            ctx.session_begin = 1;
-                        }
+                        elog_warn("Packet", "Sequence mismatch, sending NAK");
+                        Send_Byte(NAK);
                     }
+                    else
+                    {
+                        /* Call state handler function pointer */
+                        state_result = state_handlers[ctx.state](&ctx);
+                        if (state_result == (int32_t)YMODEM_RX_HANDLER_ERROR)
+                        {
+                            return state_result;
+                        }
+                        if (state_result == (int32_t)YMODEM_RX_HANDLER_DONE)
+                        {
+                            /* State handler indicates completion */
+                            break;
+                        }
+                        /* YMODEM_RX_HANDLER_CONTINUE: proceed normally */
+
+                        ctx.packets_received++;
+                        ctx.session_begin = 1;
+                    }
+                }
                 }
                 break;
             case YMODEM_PKT_ABORT:
@@ -402,7 +412,8 @@ int32_t Ymodem_Receive(uint8_t *buf)
                 if (ctx.session_begin > 0)
                 {
                     ctx.errors++;
-                    elog_warn("Error", "Timeout/Error, count: %d/%d", ctx.errors, MAX_ERRORS);
+                    elog_warn("Error", "Timeout/Error, count: %d/%d",
+                              ctx.errors, MAX_ERRORS);
                 }
                 if (ctx.errors > MAX_ERRORS)
                 {
@@ -424,13 +435,14 @@ int32_t Ymodem_Receive(uint8_t *buf)
             break;
         }
 
-        /* If file transfer complete but session not done, request next packet */
+        /* If file transfer complete but session not done, request next packet
+         */
         /* (handles second EOT or empty filename packet per Ymodem protocol) */
         if (ctx.file_done != 0 && ctx.session_done == 0)
         {
             Send_Byte(CRC16);  /* Request next packet */
-            ctx.file_done = 0;  /* Reset to allow new file processing */
-            ctx.errors = 0;     /* Reset error count for new packet reception */
+            ctx.file_done = 0; /* Reset to allow new file processing */
+            ctx.errors    = 0; /* Reset error count for new packet reception */
             elog_debug("Ymodem", "Requesting next packet with CRC16...");
         }
     }
@@ -438,7 +450,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
     /* Debug: Final result */
     elog_info("Result", "Total bytes received: %d", ctx.bytes_received);
 
-    return (int32_t)ctx.bytes_received;  /* Return actual bytes received */
+    return (int32_t)ctx.bytes_received; /* Return actual bytes received */
 }
 
 /**
