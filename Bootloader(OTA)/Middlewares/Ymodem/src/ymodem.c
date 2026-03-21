@@ -201,6 +201,7 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
     else
     {
         Send_Byte(ACK);
+        elog_info("Ymodem", "Session complete, file transfer successful");
         ctx->file_done    = 1;
         ctx->session_done = 1;
         return (int32_t)YMODEM_RX_HANDLER_DONE;
@@ -319,7 +320,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
 
     elog_info("Ymodem", "Starting reception... (buf @0x%08x)", (uint32_t)buf);
 
-    for (ctx.session_done = 0, ctx.errors = 0, ctx.session_begin = 0;;)
+    while (1)
     {
         for (ctx.packets_received = 0, ctx.file_done = 0, ctx.buf_ptr = buf;;)
         {
@@ -357,37 +358,37 @@ int32_t Ymodem_Receive(uint8_t *buf)
                     break;
                 /* Normal packet */
                 default:
-                {
-                    uint8_t pkt_seqno = ctx.packet_data[PACKET_SEQNO_INDEX] & 0xff;
-                    uint8_t exp_seqno = ctx.packets_received & 0xff;
-
-                    /* Debug: Print sequence number */
-                    elog_debug("Packet", "Seqno: %d Expected: %d", pkt_seqno, exp_seqno);
-
-                    if (pkt_seqno != exp_seqno)
                     {
-                        elog_warn("Packet", "Sequence mismatch, sending NAK");
-                        Send_Byte(NAK);
-                    }
-                    else
-                    {
-                        /* Call state handler function pointer */
-                        state_result = state_handlers[ctx.state](&ctx);
-                        if (state_result == (int32_t)YMODEM_RX_HANDLER_ERROR)
-                        {
-                            return state_result;
-                        }
-                        if (state_result == (int32_t)YMODEM_RX_HANDLER_DONE)
-                        {
-                            /* State handler indicates completion */
-                            break;
-                        }
-                        /* YMODEM_RX_HANDLER_CONTINUE: proceed normally */
+                        uint8_t pkt_seqno = ctx.packet_data[PACKET_SEQNO_INDEX] & 0xff;
+                        uint8_t exp_seqno = ctx.packets_received & 0xff;
 
-                        ctx.packets_received++;
-                        ctx.session_begin = 1;
+                        /* Debug: Print sequence number */
+                        elog_debug("Packet", "Seqno: %d Expected: %d", pkt_seqno, exp_seqno);
+
+                        if (pkt_seqno != exp_seqno)
+                        {
+                            elog_warn("Packet", "Sequence mismatch, sending NAK");
+                            Send_Byte(NAK);
+                        }
+                        else
+                        {
+                            /* Call state handler function pointer */
+                            state_result = state_handlers[ctx.state](&ctx);
+                            if (state_result == (int32_t)YMODEM_RX_HANDLER_ERROR)
+                            {
+                                return state_result;
+                            }
+                            if (state_result == (int32_t)YMODEM_RX_HANDLER_DONE)
+                            {
+                                /* State handler indicates completion */
+                                break;
+                            }
+                            /* YMODEM_RX_HANDLER_CONTINUE: proceed normally */
+
+                            ctx.packets_received++;
+                            ctx.session_begin = 1;
+                        }
                     }
-                }
                 }
                 break;
             case YMODEM_PKT_ABORT:
