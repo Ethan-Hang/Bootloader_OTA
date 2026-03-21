@@ -1,17 +1,16 @@
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
+#include <stddef.h>
+
 #include "main.h"
 #include "tim.h"
 #include "gpio.h"
-#include <stddef.h>
-// 全局定义 STM32F411xE 或者 STM32F401xx
-// 当前定义 STM32F411xE
+#include "uart.h"
 
-// STM32F411 外部晶振25Mhz，考虑到USB使用，内部频率设置为96Mhz
-// 需要100mhz,自行修改system_stm32f4xx.c
-
-/** @addtogroup Template_Project
- * @{
- */
+#include "bootmanager.h"
+#include "elog.h"
+#include "ymodem.h"
+#include "flash.h"
 
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
@@ -21,45 +20,9 @@ typedef void (*pFunction)(void);
 /* Private variables ---------------------------------------------------------*/
 static __IO uint32_t uwTimingDelay;
 RCC_ClocksTypeDef    RCC_Clocks;
-
+/* Note: g_buf is no longer needed - OTA now writes directly to Flash */
 /* Private function prototypes -----------------------------------------------*/
-void disable_all_peripherals(void)
-{
-    __disable_irq();
-    /* Stop SysTick to avoid bootloader tick interrupt after jump. */
-    SysTick->CTRL = 0U;
-    SysTick->LOAD = 0U;
-    SysTick->VAL = 0U;
 
-    /* Disable and clear all NVIC interrupt lines. */
-    for (uint32_t i = 0U; i < 8U; i++)
-    {
-        NVIC->ICER[i] = 0xFFFFFFFFU;
-        NVIC->ICPR[i] = 0xFFFFFFFFU;
-    }
-    RCC_DeInit();
-    
-}
-
-void jump_to_app(void)
-{
-    __IO uint32_t sp            = *(__IO uint32_t *)(APP_FLASH_ADDR);
-    uint32_t      jump_addr     = 0x00;
-    pFunction     jump_app_func = NULL;
-
-    if (0x20000000 < sp && sp < 0x20020000)
-    {
-        disable_all_peripherals();
-
-        // Reset Handler
-        jump_addr = *(__IO uint32_t *)(APP_FLASH_ADDR + 4);
-
-        __set_MSP(sp);
-
-        jump_app_func = (pFunction)jump_addr;
-        jump_app_func();
-    }
-}
 
 uint8_t key_scan(void)
 {
@@ -75,13 +38,6 @@ uint8_t key_scan(void)
 }
 
 /* Private functions ---------------------------------------------------------*/
-/*
- *power by WeAct Studio
- *The board with `WeAct` Logo && `version number` is our board, quality
- * guarantee. For more information please visit:
- * https://github.com/WeActTC/MiniF4-STM32F4x1
- *更多信息请访问：https://gitee.com/WeActTC/MiniF4-STM32F4x1
- */
 /**
  * @brief  Main program
  * @param  None
@@ -94,12 +50,6 @@ int main(void)
      when HSE clock fails *****************************************************/
     RCC_ClockSecuritySystemCmd(ENABLE);
 
-    /*!< At this stage the microcontroller clock setting is already configured,
-          this is done through SystemInit() function which is called from
-       startup files before to branch to application main. To reconfigure the
-       default setting of SystemInit() function, refer to system_stm32f4xx.c
-       file */
-
     /* SysTick end of count event each 1ms */
     SystemCoreClockUpdate();
     RCC_GetClocksFreq(&RCC_Clocks);
@@ -111,13 +61,34 @@ int main(void)
     delay_ms(50);
 
     GPIO_Config();
+    usart1_init();
 
-    // jump_to_app();
+    elog_init();
+    elog_start();
+
+    int32_t buf_size = 0;
+    buf_size = Ymodem_Receive(NULL);  /* buf parameter is no longer used, data goes directly to Flash */
+    log_i("Ymodem receive complete, file size: %d bytes", buf_size);
+
+    /* Check if OTA was successful (positive size) */
+    if (buf_size > 0)
+    {
+        log_i("OTA success! Jumping to application at 0x%08x", BackAppAddress);
+        delay_ms(100);  /* Brief delay before jump */
+        jump_to_app();
+        /* Never return here if jump is successful */
+    }
+    else
+    {
+        log_e("OTA failed or no data received (size: %d)", buf_size);
+        log_i("Remaining in bootloader...");
+    }
     // TIM_Config();
     /* Infinite loop */
     while (1)
     {
-        
+        log_i("This is a info log.");
+        delay_ms(500);   
     }
 }
 
@@ -168,10 +139,3 @@ void assert_failed(uint8_t *file, uint32_t line)
     }
 }
 #endif
-
-/**
- * @}
- */
-
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

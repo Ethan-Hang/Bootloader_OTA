@@ -35,9 +35,15 @@ void uart_sendchar(USART_TypeDef *USARTx, uint8_t data)
     USART_SendData(USARTx, data);
 }
 
-void uart_receivechar(USART_TypeDef *USARTx, uint8_t *data)
+uint8_t uart_receivechar(USART_TypeDef *USARTx)
 {
     while (RESET == USART_GetFlagStatus(USARTx, USART_FLAG_RXNE))
         ;
-    *data = USART_ReceiveData(USARTx);
+    return USART_ReceiveData(USARTx);
+}
+
+int fputc(int ch, FILE *f)
+{
+    uart_sendchar(USART1, (uint8_t)ch);
+    return ch;
 }

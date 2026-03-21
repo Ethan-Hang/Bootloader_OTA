@@ -53,7 +53,7 @@ ElogErrCode elog_port_init(void)
  */
 void elog_port_deinit(void)
 {
-
+    
     /* add your code here */
 }
 
