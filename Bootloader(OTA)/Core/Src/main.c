@@ -6,11 +6,13 @@
 #include "tim.h"
 #include "gpio.h"
 #include "uart.h"
+#include "spi.h"
 
 #include "bootmanager.h"
 #include "elog.h"
 #include "ymodem.h"
 #include "flash.h"
+#include "w25qxx_Handler.h"
 
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
@@ -61,6 +63,7 @@ int main(void)
 
     GPIO_Config();
     usart1_init();
+    SPI1_Init();
 
     elog_init();
     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
@@ -69,6 +72,8 @@ int main(void)
     elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_start();
+
+    W25Q64_Init();
 
     // TIM_Config();
 

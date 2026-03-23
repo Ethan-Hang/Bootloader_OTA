@@ -29,6 +29,7 @@
 #include "elog.h"
 #include "flash.h"
 #include "bootmanager.h"
+#include "w25qxx_Handler.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -180,18 +181,18 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         }
 
         /* Erase Flash sectors for application storage */
-        elog_info("FileInfo",
-                  "Erasing Backup Flash: addr=0x%08x, size=%d bytes",
-                  BackAppAddress, ctx->size);
-        uint8_t erase_result = Flash_erase(BackAppAddress, ctx->size);
-        if (erase_result != 0)
-        {
-            elog_error("FileInfo", "Flash erase failed!");
-            Send_Byte(CA);
-            Send_Byte(CA);
-            return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        }
-        elog_info("FileInfo", "Flash erase success");
+        // elog_info("FileInfo",
+        //           "Erasing Backup Flash: addr=0x%08x, size=%d bytes",
+        //           BackAppAddress, ctx->size);
+        // uint8_t erase_result = Flash_erase(BackAppAddress, ctx->size);
+        // if (erase_result != 0)
+        // {
+        //     elog_error("FileInfo", "Flash erase failed!");
+        //     Send_Byte(CA);
+        //     Send_Byte(CA);
+        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        // }
+        // elog_info("FileInfo", "Flash erase success");
 
         Send_Byte(ACK);
         Send_Byte(CRC16);
@@ -230,49 +231,52 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
 
         // Program data to Flash in 32-bit words
         uint8_t *src_ptr    = ctx->packet_data + PACKET_HEADER;
-        uint32_t flash_addr = FlashDestination;
 
-        elog_debug("FileData", "Programming Flash: offset=%d/%d (%d bytes)",
-                   ctx->bytes_received, ctx->size, bytes_to_copy);
+        W25Q64_WriteData(src_ptr, bytes_to_copy);
 
-        // Write data in 32-bit word chunks
-        for (int32_t i = 0; i < bytes_to_copy; i += 4)
-        {
-            // Get 32-bit word from packet (handle last partial word)
-            uint32_t word_data  = 0xFFFFFFFF;
-            int32_t  bytes_left = bytes_to_copy - i;
+        // uint32_t flash_addr = FlashDestination;
 
-            if (bytes_left >= 4)
-            {
-                word_data = *(uint32_t *)src_ptr;
-                src_ptr += 4;
-            }
-            else
-            {
-                // Handle last partial word (1-3 bytes)
-                for (int32_t j = 0; j < bytes_left; j++)
-                {
-                    word_data &= ~(0xFF << (j * 8));
-                    word_data |= (*src_ptr++ << (j * 8));
-                }
-            }
+        // elog_debug("FileData", "Programming Flash: offset=%d/%d (%d bytes)",
+        //            ctx->bytes_received, ctx->size, bytes_to_copy);
 
-            // Program the word to Flash
-            Flash_Write(flash_addr, word_data);
+        // // Write data in 32-bit word chunks
+        // for (int32_t i = 0; i < bytes_to_copy; i += 4)
+        // {
+        //     // Get 32-bit word from packet (handle last partial word)
+        //     uint32_t word_data  = 0xFFFFFFFF;
+        //     int32_t  bytes_left = bytes_to_copy - i;
 
-            // Verify the write (critical check!)
-            if (*(uint32_t *)(flash_addr) != word_data)
-            {
-                elog_error("FileData",
-                           "Flash write verification failed at 0x%08x",
-                           flash_addr);
-                Send_Byte(CA);
-                Send_Byte(CA);
-                return (int32_t)YMODEM_RX_HANDLER_ERROR;
-            }
+        //     if (bytes_left >= 4)
+        //     {
+        //         word_data = *(uint32_t *)src_ptr;
+        //         src_ptr += 4;
+        //     }
+        //     else
+        //     {
+        //         // Handle last partial word (1-3 bytes)
+        //         for (int32_t j = 0; j < bytes_left; j++)
+        //         {
+        //             word_data &= ~(0xFF << (j * 8));
+        //             word_data |= (*src_ptr++ << (j * 8));
+        //         }
+        //     }
 
-            flash_addr += 4;
-        }
+        //     // Program the word to Flash
+        //     Flash_Write(flash_addr, word_data);
+
+        //     // Verify the write (critical check!)
+        //     if (*(uint32_t *)(flash_addr) != word_data)
+        //     {
+        //         elog_error("FileData",
+        //                    "Flash write verification failed at 0x%08x",
+        //                    flash_addr);
+        //         Send_Byte(CA);
+        //         Send_Byte(CA);
+        //         return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        //     }
+
+        //     flash_addr += 4;
+        // }
 
         // Update tracking variables
         FlashDestination += bytes_to_copy;
@@ -449,6 +453,9 @@ int32_t Ymodem_Receive(uint8_t *buf)
 
     /* Debug: Final result */
     elog_info("Result", "Total bytes received: %d", ctx.bytes_received);
+
+    /* Complete the last incomplete block in external flash */
+    W25Q64_WriteData_End();
 
     return (int32_t)ctx.bytes_received; /* Return actual bytes received */
 }
