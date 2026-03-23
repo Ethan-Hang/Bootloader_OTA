@@ -37,20 +37,17 @@ void jump_to_app(void)
     uint32_t      jump_addr     = 0x00;
     pFunction     jump_app_func = NULL;
 
-    log_d("jump_to_app: Attempting to jump to application at 0x%08X", ApplicationAddress);
-    log_d("jump_to_app: Stack pointer value at AppAddress: 0x%08X", sp);
+    // wait for log output to complete before jumping to application
+    delay_ms(100);
 
     if (0x20000000 < sp && sp < 0x20020000)
     {
-        log_d("jump_to_app: Stack pointer valid (in SRAM range 0x20000000-0x20020000)");
         disable_all_peripherals();
 
         // Reset Handler
         jump_addr = *(__IO uint32_t *)(ApplicationAddress + 4);
-        log_d("jump_to_app: Reset Handler address: 0x%08X", jump_addr);
 
         __set_MSP(sp);
-        log_d("jump_to_app: MSP set to 0x%08X, jumping to application...", sp);
 
         jump_app_func = (pFunction)jump_addr;
         jump_app_func();

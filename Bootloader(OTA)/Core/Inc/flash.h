@@ -45,8 +45,8 @@
 #define ADDR_FLASH_SECTOR_11 ((u32)0x080E0000) // 扇区11起始地址,128 Kbytes
 
 /* OTA and Flash configuration */
-#define FLASH_SIZE           0xFFFFFUL    /* Total Flash size (minus bootloader) */
-#define PAGE_SIZE            0x800        /* Flash page size (2KB) */
+#define INTER_FLASH_SIZE           0xFFFFFUL    /* Total Flash size (minus bootloader) */
+#define INTER_PAGE_SIZE            0x800        /* Flash page size (2KB) */
 /* Exported functions ------------------------------------------------------- */
 uint8_t      Flash_erase(u32 addr, u32 size);
 FLASH_Status EreaseAppSector(uint32_t FLASH_Sector);

@@ -36,7 +36,7 @@
 /* Private variables ---------------------------------------------------------*/
 uint8_t        file_name[FILE_NAME_LENGTH];
 uint32_t       FlashDestination = BackAppAddress;
-uint32_t       PageSize         = PAGE_SIZE;
+uint32_t       PageSize         = INTER_PAGE_SIZE;
 uint32_t       EraseCounter     = 0x0;
 uint32_t       NbrOfPage        = 0;
 FLASH_Status   FLASHStatus      = FLASH_COMPLETE;
@@ -170,7 +170,7 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
 
         /* Test the size of the image to be sent */
         /* Image size is greater than Flash size */
-        if (ctx->size > (FLASH_SIZE - 1))
+        if (ctx->size > (INTER_FLASH_SIZE - 1))
         {
             elog_error("FileInfo", "File size exceeds Flash!");
             /* End session */
