@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * File Name          : freertos.c
-  * Description        : Code for freertos applications
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * File Name          : freertos.c
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -25,7 +25,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usart.h"
+#include "queue.h"
+#include "ymodem.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,16 +47,25 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+uint8_t              g_rec_cmd[10] = {0};
+QueueHandle_t        Q_YmodemReclength;
+
+osThreadId_t         OTA_taskHandle;
+const osThreadAttr_t OTA_task_attributes = {
+    .name       = "OTA_task",
+    .stack_size = 512 * 4,
+    .priority   = (osPriority_t)osPriorityNormal1,
+};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
+osThreadId_t         defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+    .name       = "defaultTask",
+    .stack_size = 128 * 4,
+    .priority   = (osPriority_t)osPriorityNormal,
 };
-
+void ota_task_runnable(void *argument);
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
@@ -65,66 +76,98 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
-  /* USER CODE BEGIN Init */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
+void MX_FREERTOS_Init(void)
+{
+    /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+    /* USER CODE END Init */
 
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
+    /* USER CODE BEGIN RTOS_MUTEX */
+    /* add mutexes, ... */
+    /* USER CODE END RTOS_MUTEX */
 
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* add semaphores, ... */
+    /* USER CODE END RTOS_SEMAPHORES */
 
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
+    /* USER CODE BEGIN RTOS_TIMERS */
+    /* start timers, add new ones, ... */
+    /* USER CODE END RTOS_TIMERS */
 
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
+    /* USER CODE BEGIN RTOS_QUEUES */
+    /* add queues, ... */
+    Q_YmodemReclength = xQueueCreate(1, sizeof(uint16_t));
+    /* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+    /* Create the thread(s) */
+    /* creation of defaultTask */
+    defaultTaskHandle =
+        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+    /* USER CODE BEGIN RTOS_THREADS */
+    /* add threads, ... */
+    OTA_taskHandle = osThreadNew(ota_task_runnable, NULL, &OTA_task_attributes);
 
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
+    /* USER CODE END RTOS_THREADS */
 
+    /* USER CODE BEGIN RTOS_EVENTS */
+    /* add events, ... */
+    /* USER CODE END RTOS_EVENTS */
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
-  /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);  
-	osDelay(500);
-  }
-  /* USER CODE END StartDefaultTask */
+    /* USER CODE BEGIN StartDefaultTask */
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, g_rec_cmd, 10);
+
+    /* Infinite loop */
+    for (;;)
+    {
+        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+        osDelay(500);
+    }
+    /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    uint16_t   t_u16_rec_len            = 0;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
+    if (USART1 == huart->Instance)
+    {
+        t_u16_rec_len = Size;
+        xQueueOverwriteFromISR(Q_YmodemReclength, &t_u16_rec_len,
+                               &xHigherPriorityTaskWoken);
+        HAL_UART_DMAStop(&huart1);
+    }
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+uint8_t g_au8_YmodemRec[1030];
+
+void    ota_task_runnable(void *argument)
+{
+    /* USER CODE BEGIN key_task_runnable */
+
+    /* Infinite loop */
+    for (;;)
+    {
+        Ymodem_Receive(g_au8_YmodemRec);
+    }
+    /* USER CODE END key_task_runnable */
+}
 /* USER CODE END Application */
-

@@ -139,3 +139,5 @@ keil-build-viewer.log
 # Doxygen Generated Files
 docs/html/
 docs/latex/
+
+demo/

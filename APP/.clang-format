@@ -1,0 +1,47 @@
+---
+# 基础代码风格
+BasedOnStyle: LLVM
+
+# 缩进与空格
+IndentWidth: 4
+UseTab: Never
+TabWidth: 4
+
+# 换行规则
+ColumnLimit: 80
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+# 对齐规则
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  PadOperators: true
+
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  PadOperators: true
+
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  PadOperators: true
+
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
+
+# 指针与空格
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+
+# 其他
+MaxEmptyLinesToKeep: 2
+SortIncludes: Never
