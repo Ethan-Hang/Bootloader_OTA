@@ -120,7 +120,6 @@ void W25Qx_Read_ID(uint16_t *ID)
     W25Qx_Disable();
 }
 
-#include <math.h>
 /**
  * @brief  Get W25QX Parameter.
  * @param  Para: W25Qx_Parameter
@@ -139,7 +138,7 @@ uint8_t W25Qx_Get_Parameter(W25Qx_Parameter *Para)
     if (id < W25Q80 || id > W25Q128)
         return W25Qx_ERROR;
 
-    size                  = (uint32_t)powf(2, (id - 0xEF13)) * 1024 * 1024;
+    size                  = (1UL << (id - W25Q80)) * 1024UL * 1024UL;
 
     Para->FLASH_ID        = id;
     Para->W25q_FLASH_SIZE = size;

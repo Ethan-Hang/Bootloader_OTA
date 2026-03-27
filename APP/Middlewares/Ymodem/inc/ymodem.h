@@ -69,9 +69,24 @@ typedef enum
     YMODEM_RX_STATE_FILE_DATA = 1  /* Processing file data packet */
 } Ymodem_RxState_t;
 
+typedef enum
+{
+    YMODEM_QMSG_FILE_INFO = 0,
+    YMODEM_QMSG_DATA      = 1,
+    YMODEM_QMSG_END       = 2
+} Ymodem_QueueMsgType_t;
+
 typedef struct
 {
-    uint8_t          packet_data[PACKET_1K_SIZE + PACKET_OVERHEAD];
+    Ymodem_QueueMsgType_t type;
+    uint8_t               packet_data[PACKET_1K_SIZE];
+    uint32_t              data_len;
+    int32_t               file_size;
+} Ymodem_QueueMsg_t;
+
+typedef struct
+{
+    uint8_t         *packet_data;
     uint8_t          file_size[FILE_SIZE_LENGTH];
     uint8_t         *file_ptr;
     uint8_t         *buf_ptr;
@@ -86,7 +101,7 @@ typedef struct
     int32_t          size;           /* Total file size from filename packet */
     int32_t          bytes_received; /* Bytes received so far */
     Ymodem_RxState_t state;
-    uint8_t         *buf;
+    uint8_t (*buf)[1030];
 } Ymodem_RxContext_t;
 
 /* State handler return values
@@ -119,7 +134,7 @@ typedef enum
 } Ymodem_ReceiveStatus_t;
 
 /* Exported functions ------------------------------------------------------- */
-int32_t  Ymodem_Receive(uint8_t *);
+int32_t  Ymodem_Receive(uint8_t (*)[1030]);
 uint8_t  Ymodem_Transmit(uint8_t *, const uint8_t *, uint32_t);
 uint16_t UpdateCRC16(uint16_t crcIn, uint8_t byte);
 uint16_t Cal_CRC16(const uint8_t *data, uint32_t size);

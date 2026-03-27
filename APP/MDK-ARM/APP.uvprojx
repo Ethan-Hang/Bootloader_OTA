@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F411xE</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Bsp/AT24Cxx/inc;../Bsp/W25Qxx/inc;../Middlewares/Ymodem/inc;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Bsp/AT24Cxx/inc;../Bsp/W25Qxx/inc;../Middlewares/Ymodem/inc;../Middlewares/RTT;../Middlewares/EasyLogger/inc;../User/OTA/inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1640,17 +1640,37 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Bsp</GroupName>
+          <GroupName>Bsp/W25q</GroupName>
+          <Files>
+            <File>
+              <FileName>w25qxx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\W25Qxx\src\w25qxx.c</FilePath>
+            </File>
+            <File>
+              <FileName>w25qxx_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\W25Qxx\src\w25qxx_handler.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Bsp/Atc24c02</GroupName>
           <Files>
             <File>
               <FileName>at24cxx_driver.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Bsp\AT24Cxx\src\at24cxx_driver.c</FilePath>
             </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>User/App</GroupName>
+          <Files>
             <File>
-              <FileName>w25qxx.c</FileName>
+              <FileName>OTA.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Bsp\W25Qxx\src\w25qxx.c</FilePath>
+              <FilePath>..\User\OTA\src\OTA.c</FilePath>
             </File>
           </Files>
         </Group>

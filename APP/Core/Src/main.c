@@ -27,7 +27,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "at24cxx_driver.h"
-#include "w25qxx.h"
+#include "w25qxx_handler.h"
 #include "elog.h"
 /* USER CODE END Includes */
 
@@ -97,17 +97,17 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  elog_init();            /* 初始化elog */
-  elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
-  elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TAG);
-  elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TAG);
-  elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG);
-  elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
-  elog_start();
+    elog_init(); /* 初始化elog */
+    elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
+    elog_start();
 
-  ee_CheckOk();         /* 检测EEPROM是否正常 */
-  //W25Qx_Init(); /* 初始化W25QXX，并获取其参数 */
-  // W25Qx_Erase_Chip();
+    ee_CheckOk();  /* 检测EEPROM是否正常 */
+    W25Q64_Init(); /* 初始化W25QXX，并获取其参数 */
+    // W25Qx_Erase_Chip();
   /* USER CODE END 2 */
 
   /* Init scheduler */

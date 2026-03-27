@@ -3,6 +3,7 @@
 #include "elog.h"
 #include "main.h"
 #include "usart.h"
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "queue.h"
@@ -17,7 +18,9 @@ uint32_t             RamSource;
 extern uint8_t       tab_1024[1024];
 
 extern QueueHandle_t Q_YmodemReclength;
+extern QueueHandle_t Queue_AppDataBuffer;
 static uint16_t      s_u16_YmodRecLength;
+
 
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
@@ -263,33 +266,35 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         ctx->file_size[ctx->i++] = '\0';
         Str2Int(ctx->file_size, &ctx->size);
 
+        // BaseType_t      retval    = pdFALSE;
+        // Ymodem_QueueMsg_t queue_msg;
+
+        // queue_msg.type       = YMODEM_QMSG_FILE_INFO;
+        // queue_msg.data_len   = 0;
+        // queue_msg.file_size  = ctx->size;
+
+        // retval = xQueueSendToBack(Queue_AppDataBuffer, &queue_msg,
+        //                           0);
+        // if (pdFALSE == retval)
+        // {
+        //     log_e("Ymodem", "Failed to send file info to queue");
+        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        // }
+
+        
+        if (ctx->buf[0] == ctx->packet_data)
+        {
+            ctx->packet_data = ctx->buf[1];
+        }
+        else
+        {
+            ctx->packet_data = ctx->buf[0];
+        }
+
+         /* Debug: Print received filename and size */
+
         /* Debug: Print received file size */
         elog_debug("FileInfo", "File size: %d bytes", ctx->size);
-
-        /* Test the size of the image to be sent */
-        /* Image size is greater than Flash size */
-        // if (ctx->size > (INTER_FLASH_SIZE - 1))
-        // {
-        //     elog_error("FileInfo", "File size exceeds Flash!");
-        //     /* End session */
-        //     Send_Byte(CA);
-        //     Send_Byte(CA);
-        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        // }
-
-        /* Erase Flash sectors for application storage */
-        // elog_info("FileInfo",
-        //           "Erasing Backup Flash: addr=0x%08x, size=%d bytes",
-        //           BackAppAddress, ctx->size);
-        // uint8_t erase_result = Flash_erase(BackAppAddress, ctx->size);
-        // if (erase_result != 0)
-        // {
-        //     elog_error("FileInfo", "Flash erase failed!");
-        //     Send_Byte(CA);
-        //     Send_Byte(CA);
-        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        // }
-        // elog_info("FileInfo", "Flash erase success");
 
         Send_Byte(ACK);
         Send_Byte(CRC16);
@@ -326,58 +331,32 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
             bytes_to_copy = ctx->size - ctx->bytes_received;
         }
 
-        // Program data to Flash in 32-bit words
-        // uint8_t *src_ptr = ctx->packet_data + PACKET_HEADER;
+        // BaseType_t      retval    = pdFALSE;
+        // Ymodem_QueueMsg_t queue_msg;
 
-        // todo
-        // W25Q64_WriteData(src_ptr, bytes_to_copy);
+        // queue_msg.type        = YMODEM_QMSG_DATA;
+        // queue_msg.data_len    = (uint32_t)bytes_to_copy;
+        // queue_msg.file_size   = ctx->size;
+        // memcpy(queue_msg.packet_data, ctx->packet_data + PACKET_HEADER,
+        //      queue_msg.data_len);
 
-        // uint32_t flash_addr = FlashDestination;
-
-        // elog_debug("FileData", "Programming Flash: offset=%d/%d (%d bytes)",
-        //            ctx->bytes_received, ctx->size, bytes_to_copy);
-
-        // // Write data in 32-bit word chunks
-        // for (int32_t i = 0; i < bytes_to_copy; i += 4)
+        // retval = xQueueSendToBack(Queue_AppDataBuffer, &queue_msg,
+        //                           0);
+        // if (pdFALSE == retval)
         // {
-        //     // Get 32-bit word from packet (handle last partial word)
-        //     uint32_t word_data  = 0xFFFFFFFF;
-        //     int32_t  bytes_left = bytes_to_copy - i;
-
-        //     if (bytes_left >= 4)
-        //     {
-        //         word_data = *(uint32_t *)src_ptr;
-        //         src_ptr += 4;
-        //     }
-        //     else
-        //     {
-        //         // Handle last partial word (1-3 bytes)
-        //         for (int32_t j = 0; j < bytes_left; j++)
-        //         {
-        //             word_data &= ~(0xFF << (j * 8));
-        //             word_data |= (*src_ptr++ << (j * 8));
-        //         }
-        //     }
-
-        //     // Program the word to Flash
-        //     Flash_Write(flash_addr, word_data);
-
-        //     // Verify the write (critical check!)
-        //     if (*(uint32_t *)(flash_addr) != word_data)
-        //     {
-        //         elog_error("FileData",
-        //                    "Flash write verification failed at 0x%08x",
-        //                    flash_addr);
-        //         Send_Byte(CA);
-        //         Send_Byte(CA);
-        //         return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        //     }
-
-        //     flash_addr += 4;
+        //     log_e("Ymodem", "Failed to send file data to queue");
+        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
         // }
+         /* Debug: Print received packet info */
 
-        // Update tracking variables
-        // FlashDestination += bytes_to_copy;
+        if (ctx->buf[0] == ctx->packet_data)
+        {
+            ctx->packet_data = ctx->buf[1];
+        }
+        else
+        {
+            ctx->packet_data = ctx->buf[0];
+        }
 
         ctx->bytes_received += bytes_to_copy;
 
@@ -401,7 +380,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
  *    - YMODEM_RX_FLASH_ERR: Flash programming error (-2)
  *    - YMODEM_RX_USER_ABORT: User abort with Ctrl+C (-3)
  */
-int32_t Ymodem_Receive(uint8_t *buf)
+int32_t Ymodem_Receive(uint8_t (*buf)[1030])
 {
     Ymodem_RxContext_t ctx;
     /* State handler function pointer array */
@@ -414,7 +393,8 @@ int32_t Ymodem_Receive(uint8_t *buf)
 
     /* Initialize context */
     ctx.buf              = buf;
-    ctx.buf_ptr          = buf;
+    ctx.buf_ptr          = buf[0];
+    ctx.packet_data      = ctx.buf_ptr;
     ctx.size             = 0;
     ctx.bytes_received   = 0;
     ctx.errors           = 0;
@@ -422,15 +402,15 @@ int32_t Ymodem_Receive(uint8_t *buf)
     ctx.packets_received = 0;
     ctx.session_begin    = 0;
     ctx.state            = YMODEM_RX_STATE_FILE_INFO;
-
     /* Initialize FlashDestination variable */
     // FlashDestination     = BackAppAddress;
 
-    elog_info("Ymodem", "Starting reception... (buf @0x%08x)", (uint32_t)buf);
+    elog_info("Ymodem", "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
+              (uint32_t)buf[0], (uint32_t)buf[1]);
 
     while (1)
     {
-        for (ctx.packets_received = 0, ctx.file_done = 0, ctx.buf_ptr = buf;;)
+        for (ctx.packets_received = 0, ctx.file_done = 0;;)
         {
             rx_result = Receive_Packet(ctx.packet_data, &ctx.packet_length,
                                        NAK_TIMEOUT);
