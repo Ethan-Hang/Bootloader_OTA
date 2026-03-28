@@ -76,13 +76,13 @@ typedef enum
     YMODEM_QMSG_END       = 2
 } Ymodem_QueueMsgType_t;
 
-typedef struct
-{
-    Ymodem_QueueMsgType_t type;
-    uint8_t               packet_data[PACKET_1K_SIZE];
-    uint32_t              data_len;
-    int32_t               file_size;
-} Ymodem_QueueMsg_t;
+// typedef struct
+// {
+//     Ymodem_QueueMsgType_t type;
+//     uint8_t               packet_data[PACKET_1K_SIZE];
+//     uint32_t              data_len;
+//     int32_t               file_size;
+// } Ymodem_QueueMsg_t;
 
 typedef struct
 {
@@ -91,7 +91,6 @@ typedef struct
     uint8_t         *file_ptr;
     uint8_t         *buf_ptr;
     int32_t          i;
-    int32_t          j;
     int32_t          packet_length;
     int32_t          session_done;
     int32_t          file_done;
@@ -128,7 +127,7 @@ typedef enum
 {
     YMODEM_RX_ABORTED     = 0,  /* Abort by sender (normal end) */
     YMODEM_RX_SIZE_ERR    = -1, /* Image size exceeds Flash size */
-    YMODEM_RX_TIMEOUT_ERR = 0,  /* Max errors reached, timeout */
+    YMODEM_RX_TIMEOUT_ERR = -4, /* Max errors reached, timeout */
     YMODEM_RX_FLASH_ERR   = -2, /* Flash programming error */
     YMODEM_RX_USER_ABORT  = -3  /* User abort (Ctrl+C) */
 } Ymodem_ReceiveStatus_t;
@@ -139,12 +138,10 @@ uint8_t  Ymodem_Transmit(uint8_t *, const uint8_t *, uint32_t);
 uint16_t UpdateCRC16(uint16_t crcIn, uint8_t byte);
 uint16_t Cal_CRC16(const uint8_t *data, uint32_t size);
 uint8_t  CalChecksum(const uint8_t *data, uint32_t size);
-int32_t  Ymodem_CheckResponse(uint8_t c);
 void     Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *fileName,
                                     uint32_t *length);
 void     Ymodem_PreparePacket(uint8_t *SourceBuf, uint8_t *data, uint8_t pktNo,
                               uint32_t sizeBlk);
-void     Ymodem_SendPacket(uint8_t *data, uint16_t length);
 
 #endif /* _YMODEM_H_ */
 

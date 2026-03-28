@@ -48,7 +48,7 @@ static int8_t Key_Scan(void)
 void ota_wait_for_download_req_handler(ota_download_status_t *status,
                                        ee_os_status_t        *ee_status)
 {
-    log_w("Change to OTA_WAIT_FOR_DOWNLOAD_REQ state");
+    DEBUG_OUT(v, "OTA", "Change to OTA_WAIT_FOR_DOWNLOAD_REQ state");
 
     HAL_UART_Transmit(&huart1, (uint8_t *)"Waiting for download request...\r\n",
                       33, HAL_MAX_DELAY);
@@ -57,20 +57,21 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
     uint16_t rec_length = 0;
     xQueueReceive(Q_YmodemReclength, &rec_length, portMAX_DELAY);
 
-    log_i("received command %x %x %x, length: %d", s_otacmd[0], s_otacmd[1],
-          s_otacmd[2], rec_length);
+    DEBUG_OUT(i, "OTA", "received command %x %x %x, length: %d", s_otacmd[0],
+              s_otacmd[1], s_otacmd[2], rec_length);
 
     if (3 == rec_length)
     {
         if (s_otacmd[0] == 0x11 && s_otacmd[1] == 0x22 && s_otacmd[2] == 0x33)
         {
-            *status             = OTA_DOWNLOAD;
+            *status = OTA_DOWNLOAD;
 
-            Queue_AppDataBuffer = xQueueCreate(4, sizeof(Ymodem_QueueMsg_t**));
+            Queue_AppDataBuffer =
+                xQueueCreate(4, sizeof(Ymodem_RxContext_t **));
             Semaphore_ExtFlashState = xSemaphoreCreateBinary();
             if (NULL == Queue_AppDataBuffer || NULL == Semaphore_ExtFlashState)
             {
-                log_e("Failed to create OTA IPC resources");
+                DEBUG_OUT(e, "OTA", "Failed to create OTA IPC resources");
                 if (NULL != Queue_AppDataBuffer)
                 {
                     vQueueDelete(Queue_AppDataBuffer);
@@ -94,7 +95,7 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
                             &DownloadAppData_task_attributes);
             if (NULL == DownloadAppData_taskHandle)
             {
-                log_e("Failed to create DownloadAppData task");
+                DEBUG_OUT(e, "OTA", "Failed to create DownloadAppData task");
                 vQueueDelete(Queue_AppDataBuffer);
                 Queue_AppDataBuffer = NULL;
                 vSemaphoreDelete(Semaphore_ExtFlashState);
@@ -122,14 +123,14 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
 void ota_download_handler(ota_download_status_t *status,
                           ee_os_status_t        *ee_status)
 {
-    log_w("Change to OTA_DOWNLOAD state");
+    DEBUG_OUT(v, "OTA", "Change to OTA_DOWNLOAD state");
 
     int32_t app_data_length = 0;
     app_data_length         = Ymodem_Receive(g_au8_YmodemRec);
     if (app_data_length > 0)
     {
         *status = OTA_WAIT_REQ;
-        log_i("Received app data, length: %d", app_data_length);
+        DEBUG_OUT(i, "OTA", "Received app data, length: %d", app_data_length);
 
         W25Q64_WriteData_End();
 
@@ -142,8 +143,16 @@ void ota_download_handler(ota_download_status_t *status,
     }
 
     ee_WriteBytes((uint8_t *)ee_status, 0x00, 1);
-    log_i("EE Writed %d EE read status: %d", *ee_status,
-          ee_ReadBytes((uint8_t *)ee_status, 0x00, 1));
+
+    ee_os_status_t ee_read_status = OTA_EMPTY;
+    ee_ReadBytes((uint8_t *)ee_read_status, 0x00, 1);
+    DEBUG_OUT(d, "OTA", "EE Writed %d EE read status: %d", *ee_status,
+              ee_read_status);
+    
+    if (ee_read_status != *ee_status)
+    {
+        DEBUG_OUT(e, "OTA", "EEPROM read-back verification failed");
+    }
 
     osDelay(1000);
     // cleanup
@@ -155,8 +164,8 @@ void ota_download_handler(ota_download_status_t *status,
 void ota_wait_req_handler(ota_download_status_t *status,
                           ee_os_status_t        *ee_status)
 {
-    log_w("Change to OTA_WAIT_REQ state");
-
+    DEBUG_OUT(v, "OTA", "Change to OTA_WAIT_REQ state");
+    
     HAL_UART_Transmit(&huart1, (uint8_t *)"Waiting for update request...\r\n",
                       32, HAL_MAX_DELAY);
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_otacmd, 4);
@@ -181,7 +190,7 @@ void ota_wait_req_handler(ota_download_status_t *status,
 void ota_download_end_handler(ota_download_status_t *status,
                               ee_os_status_t        *ee_status)
 {
-    log_w("Change to OTA_DOWNLOAD_END state");
+    DEBUG_OUT(v, "OTA", "Change to OTA_DOWNLOAD_END state");
 
     int8_t retval = Key_Scan();
     if (1 == retval)
@@ -222,17 +231,14 @@ void DownloadAppData_task_runnable(void *argument)
     BaseType_t          retval = pdFALSE;
     Ymodem_RxContext_t *ctx    = NULL;
 
-
     retval = xQueueReceive(Queue_AppDataBuffer, &ctx, portMAX_DELAY);
-    if (pdFALSE == retval || NULL == ctx)
+    if (NULL == ctx || pdFALSE == retval || ctx->size <= 0)
     {
-        log_e("Failed to receive app data size from queue");
+        DEBUG_OUT(e, "OTA", "Failed to receive app data size from queue");
         while (1)
-        {
-            
-        }
+            ;
     }
-    log_i("W25Q: Received file size: %d bytes", ctx->size);
+    DEBUG_OUT(i, "OTA", "W25Q: Received file size: %d bytes", ctx->size);
     xSemaphoreGive(Semaphore_ExtFlashState);
 
     for (;;)
@@ -242,7 +248,10 @@ void DownloadAppData_task_runnable(void *argument)
         xSemaphoreTake(Semaphore_ExtFlashState, 0);
         if (NULL == ctx || pdFALSE == retval || ctx->size <= 0)
         {
-            log_w("No more data to write or failed to receive data from queue, exiting task");
+            DEBUG_OUT(
+                w, "OTA",
+                "No more data to write or failed to receive data from queue, "
+                "exiting task");
             xSemaphoreGive(Semaphore_ExtFlashState);
             continue;
         }
@@ -250,6 +259,5 @@ void DownloadAppData_task_runnable(void *argument)
         W25Q64_WriteData(ctx->packet_data, ctx->packet_length);
 
         xSemaphoreGive(Semaphore_ExtFlashState);
-
     }
 }

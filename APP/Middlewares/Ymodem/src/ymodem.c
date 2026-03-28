@@ -1,6 +1,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "common.h"
-#include "elog.h"
+#include "Debug.h"
 #include "main.h"
 #include "usart.h"
 #include <string.h>
@@ -12,22 +12,17 @@
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-uint8_t              file_name[FILE_NAME_LENGTH];
-uint32_t             EraseCounter = 0x0;
-uint32_t             NbrOfPage    = 0;
-uint32_t             RamSource;
-extern uint8_t       tab_1024[1024];
-
-extern QueueHandle_t Q_YmodemReclength;
-extern QueueHandle_t Queue_AppDataBuffer;
+uint8_t                  file_name[FILE_NAME_LENGTH];
+extern QueueHandle_t     Q_YmodemReclength;
+extern QueueHandle_t     Queue_AppDataBuffer;
 extern SemaphoreHandle_t Semaphore_ExtFlashState;
-static uint16_t      s_u16_YmodRecLength;
+static uint16_t          s_u16_YmodRecLength;
 
 
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
-static void          Int2Str(uint8_t *str, int32_t intnum)
+static void Int2Str(uint8_t *str, int32_t intnum)
 {
     uint32_t i, Div = 1000000000, j = 0, Status = 0;
 
@@ -178,6 +173,58 @@ static uint32_t Send_Byte(uint8_t c)
     return 0;
 }
 
+
+static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
+{
+    BaseType_t retval = pdFALSE;
+
+    ctx->packet_data  = ctx->packet_data + PACKET_HEADER;
+    retval            = xQueueSendToBack(Queue_AppDataBuffer, &ctx, 0);
+    if (pdFALSE == retval)
+    {
+        DEBUG_OUT(e, "Ymodem", "Failed to send file data to queue");
+        // return (int32_t)YMODEM_RX_HANDLER_ERROR;
+    }
+    ctx->packet_data = ctx->packet_data - PACKET_HEADER;
+
+    xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
+
+    xSemaphoreGive(Semaphore_ExtFlashState);
+
+    if (ctx->buf[0] == ctx->packet_data)
+    {
+        ctx->packet_data = ctx->buf[1];
+    }
+    else
+    {
+        ctx->packet_data = ctx->buf[0];
+    }
+}
+
+static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
+{
+    BaseType_t retval = pdFALSE;
+    retval            = xQueueSendToBack(Queue_AppDataBuffer, &ctx, 0);
+    if (pdFALSE == retval)
+    {
+        DEBUG_OUT(e, "Ymodem", "Failed to send file info to queue");
+        // return (int32_t)YMODEM_RX_HANDLER_ERROR;
+    }
+
+    xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
+
+    xSemaphoreGive(Semaphore_ExtFlashState);
+
+    if (ctx->buf[0] == ctx->packet_data)
+    {
+        ctx->packet_data = ctx->buf[1];
+    }
+    else
+    {
+        ctx->packet_data = ctx->buf[0];
+    }
+}
+
 /**
  * @brief  Receive a packet from sender
  * @param  data
@@ -213,12 +260,13 @@ static int32_t Receive_Packet(uint8_t *data, int32_t *length, uint32_t timeout)
         if ((Receive_Byte(&c, 1, timeout) == 0) && (c == CA))
         {
             *length = -1;
-            log_i("Ymodem", "Received double CA, aborting transfer...");
+            DEBUG_OUT(i, "Ymodem", "Received double CA, aborting transfer...");
             return (int32_t)YMODEM_PKT_SUCCESS;
         }
         else
         {
-            log_w("Ymodem", "Single CA received, waiting for second CA...");
+            DEBUG_OUT(w, "Ymodem",
+                      "Single CA received, waiting for second CA...");
             return (int32_t)YMODEM_PKT_TIMEOUT;
         }
     case ABORT1:
@@ -268,44 +316,13 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         ctx->file_size[ctx->i++] = '\0';
         Str2Int(ctx->file_size, &ctx->size);
 
-        BaseType_t      retval    = pdFALSE;
-        static Ymodem_QueueMsg_t queue_msg;
-        static Ymodem_QueueMsg_t *p_queue_msg;
+        Ymodem_File_Info_User_Handler(ctx);
 
-        queue_msg.type       = YMODEM_QMSG_FILE_INFO;
-        queue_msg.data_len   = 0;
-        queue_msg.file_size  = ctx->size;
-        p_queue_msg = &queue_msg;
-
-        retval = xQueueSendToBack(Queue_AppDataBuffer, &p_queue_msg,
-                                  0);
-        if (pdFALSE == retval)
-        {
-            log_e("Ymodem", "Failed to send file info to queue");
-            return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        }
-
-        xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
-
-        xSemaphoreGive(Semaphore_ExtFlashState);
-        
-        if (ctx->buf[0] == ctx->packet_data)
-        {
-            ctx->packet_data = ctx->buf[1];
-        }
-        else
-        {
-            ctx->packet_data = ctx->buf[0];
-        }
-
-         /* Debug: Print received filename and size */
-
-        /* Debug: Print received file size */
-        elog_debug("FileInfo", "File size: %d bytes", ctx->size);
+        DEBUG_OUT(d, "FileInfo", "File size: %d bytes", ctx->size);
 
         Send_Byte(ACK);
         Send_Byte(CRC16);
-        elog_debug("FileInfo", "Transition to FILE_DATA state");
+        DEBUG_OUT(d, "FileInfo", "Transition to FILE_DATA state");
         ctx->bytes_received = 0; /* Reset byte counter for new file */
         ctx->state          = YMODEM_RX_STATE_FILE_DATA;
         return (int32_t)YMODEM_RX_HANDLER_CONTINUE;
@@ -314,7 +331,7 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
     else
     {
         Send_Byte(ACK);
-        elog_info("Ymodem", "Session complete, file transfer successful");
+        DEBUG_OUT(d, "Ymodem", "Session complete, file transfer successful");
         ctx->file_done    = 1;
         ctx->session_done = 1;
         return (int32_t)YMODEM_RX_HANDLER_DONE;
@@ -338,49 +355,14 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
             bytes_to_copy = ctx->size - ctx->bytes_received;
         }
 
-        BaseType_t      retval    = pdFALSE;
-        // static Ymodem_QueueMsg_t queue_msg;
-        // static Ymodem_QueueMsg_t *p_queue_msg;
-
-        // queue_msg.type        = YMODEM_QMSG_DATA;
-        // queue_msg.data_len    = (uint32_t)bytes_to_copy;
-        // queue_msg.file_size   = ctx->size;
-
-        // p_queue_msg = &queue_msg;
-        
-        // memcpy(queue_msg.packet_data, ctx->packet_data + PACKET_HEADER,
-        //      queue_msg.data_len);
-        
-        ctx->packet_data = ctx->packet_data + PACKET_HEADER;
-            
-        retval = xQueueSendToBack(Queue_AppDataBuffer, &ctx,
-                                  0);
-        if (pdFALSE == retval)
-        {
-            log_e("Ymodem", "Failed to send file data to queue");
-            return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        }
-        ctx->packet_data = ctx->packet_data - PACKET_HEADER;
-
-        xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
-
-        xSemaphoreGive(Semaphore_ExtFlashState);
-
-        if (ctx->buf[0] == ctx->packet_data)
-        {
-            ctx->packet_data = ctx->buf[1];
-        }
-        else
-        {
-            ctx->packet_data = ctx->buf[0];
-        }
+        Ymodem_File_Data_User_Handler(ctx);
 
         ctx->bytes_received += bytes_to_copy;
 
         // Calculate and display progress (integer math, no float)
         uint32_t progress_percent = (ctx->bytes_received * 100) / ctx->size;
-        elog_debug("FileData", "Progress: %d/%d bytes (%d%%)",
-                   ctx->bytes_received, ctx->size, progress_percent);
+        DEBUG_OUT(i, "FileData", "Progress: %d/%d bytes (%d%%)",
+                  ctx->bytes_received, ctx->size, progress_percent);
     }
 
     Send_Byte(ACK);
@@ -393,7 +375,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
  * @retval Ymodem_ReceiveStatus_t: File size on success, negative on error
  *    - YMODEM_RX_ABORTED: Abort by sender (0)
  *    - YMODEM_RX_SIZE_ERR: Image size exceeds Flash size (-1)
- *    - YMODEM_RX_TIMEOUT_ERR: Max retries exceeded (0)
+ *    - YMODEM_RX_TIMEOUT_ERR: Max retries exceeded (-4)
  *    - YMODEM_RX_FLASH_ERR: Flash programming error (-2)
  *    - YMODEM_RX_USER_ABORT: User abort with Ctrl+C (-3)
  */
@@ -422,7 +404,7 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
     /* Initialize FlashDestination variable */
     // FlashDestination     = BackAppAddress;
 
-    elog_info("Ymodem", "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
+    DEBUG_OUT(i, "Ymodem", "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
               (uint32_t)buf[0], (uint32_t)buf[1]);
 
     while (1)
@@ -452,15 +434,15 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                          * packet */
                         ctx.state     = YMODEM_RX_STATE_FILE_INFO;
                         ctx.file_done = 1;
-                        elog_debug("Ymodem",
-                                   "EOT received, waiting for EOF packet...");
+                        DEBUG_OUT(d, "Ymodem",
+                                  "EOT received, waiting for EOF packet...");
                     }
                     else if (ctx.state == YMODEM_RX_STATE_FILE_INFO)
                     {
                         /* Second EOT or EOF packet received, end session */
                         ctx.file_done    = 1;
                         ctx.session_done = 1;
-                        elog_info("Ymodem",
+                        DEBUG_OUT(i, "Ymodem",
                                   "Session complete, file transfer successful");
                     }
                     break;
@@ -472,12 +454,13 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                     uint8_t exp_seqno = ctx.packets_received & 0xff;
 
                     /* Debug: Print sequence number */
-                    elog_debug("Packet", "Seqno: %d Expected: %d", pkt_seqno,
-                               exp_seqno);
+                    DEBUG_OUT(i, "Packet", "Seqno: %d Expected: %d", pkt_seqno,
+                              exp_seqno);
 
                     if (pkt_seqno != exp_seqno)
                     {
-                        elog_warn("Packet", "Sequence mismatch, sending NAK");
+                        DEBUG_OUT(w, "Packet",
+                                  "Sequence mismatch, sending NAK");
                         Send_Byte(NAK);
                     }
                     else
@@ -512,12 +495,12 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                 if (ctx.session_begin > 0)
                 {
                     ctx.errors++;
-                    elog_warn("Error", "Timeout/Error, count: %d/%d",
+                    DEBUG_OUT(w, "Error", "Timeout/Error, count: %d/%d",
                               ctx.errors, MAX_ERRORS);
                 }
                 if (ctx.errors > MAX_ERRORS)
                 {
-                    elog_error("Error", "Max errors exceeded!");
+                    DEBUG_OUT(e, "Error", "Max errors exceeded!");
                     Send_Byte(CA);
                     Send_Byte(CA);
                     return (int32_t)YMODEM_RX_TIMEOUT_ERR;
@@ -543,27 +526,14 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
             Send_Byte(CRC16);  /* Request next packet */
             ctx.file_done = 0; /* Reset to allow new file processing */
             ctx.errors    = 0; /* Reset error count for new packet reception */
-            elog_debug("Ymodem", "Requesting next packet with CRC16...");
+            DEBUG_OUT(d, "Ymodem", "Requesting next packet with CRC16...");
         }
     }
 
     /* Debug: Final result */
-    elog_info("Result", "Total bytes received: %d", ctx.bytes_received);
+    DEBUG_OUT(i, "Result", "Total bytes received: %d", ctx.bytes_received);
 
-    /* Complete the last incomplete block in external flash */
-    // W25Q64_WriteData_End();
-
-    return (int32_t)ctx.bytes_received; /* Return actual bytes received */
-}
-
-/**
- * @brief  check response using the ymodem protocol
- * @param  buf: Address of the first byte
- * @retval The size of the file
- */
-int32_t Ymodem_CheckResponse(uint8_t c)
-{
-    return 0;
+    return ctx.bytes_received; /* Return actual bytes received */
 }
 
 /**
@@ -571,7 +541,7 @@ int32_t Ymodem_CheckResponse(uint8_t c)
  * @param  timeout
  *     0: end of transmission
  */
-void Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *fileName,
+void Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *g_fileName,
                                 uint32_t *length)
 {
     uint16_t i, j;
@@ -583,9 +553,9 @@ void Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *fileName,
     data[2] = 0xff;
 
     /* Filename packet has valid data */
-    for (i = 0; (fileName[i] != '\0') && (i < FILE_NAME_LENGTH); i++)
+    for (i = 0; (g_fileName[i] != '\0') && (i < FILE_NAME_LENGTH); i++)
     {
-        data[i + PACKET_HEADER] = fileName[i];
+        data[i + PACKET_HEADER] = g_fileName[i];
     }
 
     data[i + PACKET_HEADER] = 0x00;
@@ -697,22 +667,3 @@ uint8_t CalChecksum(const uint8_t *data, uint32_t size)
         sum += *data++;
     return sum & 0xffu;
 }
-
-/**
- * @brief  Transmit a data packet using the ymodem protocol
- * @param  data
- * @param  length
- * @retval None
- */
-void Ymodem_SendPacket(uint8_t *data, uint16_t length)
-{
-    uint16_t i;
-    i = 0;
-    while (i < length)
-    {
-        Send_Byte(data[i]);
-        i++;
-    }
-}
-
-/*******************(C)COPYRIGHT 2010 STMicroelectronics *****END OF FILE****/

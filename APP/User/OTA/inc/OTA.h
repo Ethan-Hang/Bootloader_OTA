@@ -10,7 +10,7 @@
 #include "cmsis_os2.h"
 #include "usart.h"
 #include "main.h"
-#include "elog.h"
+#include "Debug.h"
 #include "at24cxx_driver.h"
 #include "w25qxx_handler.h"
 

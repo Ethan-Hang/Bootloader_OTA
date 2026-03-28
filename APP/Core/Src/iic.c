@@ -4,7 +4,7 @@
 static void i2c_Delay(void)
 {
     uint8_t i;
-    for (i = 0; i < 40; i++)
+    for (i = 0; i < 67; i++)
         ;
 }
 
