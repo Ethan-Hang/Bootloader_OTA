@@ -107,7 +107,8 @@ int main(void)
 
     ee_CheckOk();  /* 检测EEPROM是否正常 */
     W25Q64_Init(); /* 初始化W25QXX，并获取其参数 */
-    // W25Qx_Erase_Chip();
+    W25Q64_EraseChip();
+    log_i("System initialized successfully. Ready to receive Ymodem data.");
   /* USER CODE END 2 */
 
   /* Init scheduler */

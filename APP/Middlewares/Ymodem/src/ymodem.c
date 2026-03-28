@@ -7,6 +7,7 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -19,6 +20,7 @@ extern uint8_t       tab_1024[1024];
 
 extern QueueHandle_t Q_YmodemReclength;
 extern QueueHandle_t Queue_AppDataBuffer;
+extern SemaphoreHandle_t Semaphore_ExtFlashState;
 static uint16_t      s_u16_YmodRecLength;
 
 
@@ -266,21 +268,26 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         ctx->file_size[ctx->i++] = '\0';
         Str2Int(ctx->file_size, &ctx->size);
 
-        // BaseType_t      retval    = pdFALSE;
-        // Ymodem_QueueMsg_t queue_msg;
+        BaseType_t      retval    = pdFALSE;
+        static Ymodem_QueueMsg_t queue_msg;
+        static Ymodem_QueueMsg_t *p_queue_msg;
 
-        // queue_msg.type       = YMODEM_QMSG_FILE_INFO;
-        // queue_msg.data_len   = 0;
-        // queue_msg.file_size  = ctx->size;
+        queue_msg.type       = YMODEM_QMSG_FILE_INFO;
+        queue_msg.data_len   = 0;
+        queue_msg.file_size  = ctx->size;
+        p_queue_msg = &queue_msg;
 
-        // retval = xQueueSendToBack(Queue_AppDataBuffer, &queue_msg,
-        //                           0);
-        // if (pdFALSE == retval)
-        // {
-        //     log_e("Ymodem", "Failed to send file info to queue");
-        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        // }
+        retval = xQueueSendToBack(Queue_AppDataBuffer, &p_queue_msg,
+                                  0);
+        if (pdFALSE == retval)
+        {
+            log_e("Ymodem", "Failed to send file info to queue");
+            return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        }
 
+        xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
+
+        xSemaphoreGive(Semaphore_ExtFlashState);
         
         if (ctx->buf[0] == ctx->packet_data)
         {
@@ -331,23 +338,33 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
             bytes_to_copy = ctx->size - ctx->bytes_received;
         }
 
-        // BaseType_t      retval    = pdFALSE;
-        // Ymodem_QueueMsg_t queue_msg;
+        BaseType_t      retval    = pdFALSE;
+        // static Ymodem_QueueMsg_t queue_msg;
+        // static Ymodem_QueueMsg_t *p_queue_msg;
 
         // queue_msg.type        = YMODEM_QMSG_DATA;
         // queue_msg.data_len    = (uint32_t)bytes_to_copy;
         // queue_msg.file_size   = ctx->size;
+
+        // p_queue_msg = &queue_msg;
+        
         // memcpy(queue_msg.packet_data, ctx->packet_data + PACKET_HEADER,
         //      queue_msg.data_len);
+        
+        ctx->packet_data = ctx->packet_data + PACKET_HEADER;
+            
+        retval = xQueueSendToBack(Queue_AppDataBuffer, &ctx,
+                                  0);
+        if (pdFALSE == retval)
+        {
+            log_e("Ymodem", "Failed to send file data to queue");
+            return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        }
+        ctx->packet_data = ctx->packet_data - PACKET_HEADER;
 
-        // retval = xQueueSendToBack(Queue_AppDataBuffer, &queue_msg,
-        //                           0);
-        // if (pdFALSE == retval)
-        // {
-        //     log_e("Ymodem", "Failed to send file data to queue");
-        //     return (int32_t)YMODEM_RX_HANDLER_ERROR;
-        // }
-         /* Debug: Print received packet info */
+        xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
+
+        xSemaphoreGive(Semaphore_ExtFlashState);
 
         if (ctx->buf[0] == ctx->packet_data)
         {
