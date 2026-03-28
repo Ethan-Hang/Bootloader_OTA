@@ -76,14 +76,6 @@ typedef enum
     YMODEM_QMSG_END       = 2
 } Ymodem_QueueMsgType_t;
 
-// typedef struct
-// {
-//     Ymodem_QueueMsgType_t type;
-//     uint8_t               packet_data[PACKET_1K_SIZE];
-//     uint32_t              data_len;
-//     int32_t               file_size;
-// } Ymodem_QueueMsg_t;
-
 typedef struct
 {
     uint8_t         *packet_data;

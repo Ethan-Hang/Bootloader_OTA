@@ -137,6 +137,7 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
 static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
 {
     HAL_StatusTypeDef hal_ret;
+    BaseType_t retval = pdFALSE;
 
     /* Make sure UART RX DMA is in IDLE mode so RxEvent callback can report
      * actual frame length. */
@@ -151,9 +152,8 @@ static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
         }
     }
 
-    BaseType_t retval = pdFALSE;
-    retval            = xQueueReceive(Q_YmodemReclength, &s_u16_YmodRecLength,
-                                      pdMS_TO_TICKS(timeout));
+    retval = xQueueReceive(Q_YmodemReclength, &s_u16_YmodRecLength,
+                                             pdMS_TO_TICKS(timeout));
     if (pdFALSE == retval)
     {
         return YMODEM_PKT_TIMEOUT; /* Timeout */
@@ -402,7 +402,6 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
     ctx.session_begin    = 0;
     ctx.state            = YMODEM_RX_STATE_FILE_INFO;
     /* Initialize FlashDestination variable */
-    // FlashDestination     = BackAppAddress;
 
     DEBUG_OUT(i, "Ymodem", "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
               (uint32_t)buf[0], (uint32_t)buf[1]);

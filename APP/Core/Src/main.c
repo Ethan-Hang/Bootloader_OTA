@@ -98,25 +98,13 @@ int     main(void)
     MX_SPI1_Init();
     MX_USART1_UART_Init();
     /* USER CODE BEGIN 2 */
-    debug_init(); /* 初始化调试模块，配置日志输出 */
+    debug_init();
     
-
-                  /* 初始化EEPROM，准备存储状态信息 */
-
-    // ee_Erase(); /* 擦除EEPROM，准备存储状态信息 */
-    ee_CheckOk(); /* 检测EEPROM是否正常 */
-    // g_ack = 0x11;
-    // DEBUG_OUT(i, "MAIN", "EEPROM check: %s", g_ack ? "OK" : "FAIL");
-    // ee_WriteBytes((uint8_t *)&g_ack, 0x00, 1); /*
-    // 将EEPROM状态写入EEPROM，供其他模块读取 */ uint8_t read_ack = 0;
-    // ee_ReadBytes((uint8_t *)&read_ack, 0x00, 1);  /*
-    // 从EEPROM读取状态，验证写入是否成功 */ DEBUG_OUT(i, "MAIN", "EEPROM read-back check: %s",
-    // (read_ack == g_ack) ? "OK" : "FAIL");
-
-    W25Q64_Init(); /* 初始化W25QXX，并获取其参数 */
+    // ee_Erase();
+    ee_CheckOk();
+    W25Q64_Init();
     // W25Q64_EraseChip();
-    DEBUG_OUT(i, "MAIN",
-              "System initialized successfully. Ready to receive Ymodem data.");
+    DEBUG_OUT(i, "MAIN", "System initialized successfully.");
     /* USER CODE END 2 */
 
     /* Init scheduler */

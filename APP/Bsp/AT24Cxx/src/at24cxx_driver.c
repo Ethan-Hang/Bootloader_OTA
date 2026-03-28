@@ -35,18 +35,29 @@ uint8_t ee_CheckOk(void)
 uint8_t ee_ReadBytes(uint8_t *_pReadBuf, uint16_t _usAddress, uint16_t _usSize)
 {
     uint16_t i;
+    uint16_t m;
     /* 采用串行EEPROM随即读取指令序列，连续读取若干字节 */
 
-    /* 第1步：发起I2C总线启动信号 */
-    i2c_Start();
-
-    /* 第2步：发起控制字节，高7bit是地址，bit0是读写控制位，0表示写，1表示读 */
-    i2c_SendByte(EEPROM_DEV_ADDR | EEPROM_I2C_WR); /* 此处是写指令 */
-
-    /* 第3步：等待ACK */
-    if (i2c_WaitAck() != 0)
+    /* 写操作后AT24会进入内部写周期，期间会NACK，需要先轮询到设备就绪 */
+    for (m = 0; m < 1000; m++)
     {
-        goto cmd_fail; /* EEPROM器件无应答 */
+        /* 第1步：发起I2C总线启动信号 */
+        i2c_Start();
+
+        /* 第2步：发起控制字节，高7bit是地址，bit0是读写控制位，0表示写，1表示读
+         */
+        i2c_SendByte(EEPROM_DEV_ADDR | EEPROM_I2C_WR); /* 此处是写指令 */
+
+        /* 第3步：等待ACK */
+        if (i2c_WaitAck() == 0)
+        {
+            break;
+        }
+        i2c_Stop();
+    }
+    if (m == 1000)
+    {
+        goto cmd_fail; /* EEPROM器件忙超时 */
     }
 
     /* 第4步：发送字节地址，24C02只有256字节，因此1个字节就够了，如果是24C04以上，那么此处需要连发多个地址
