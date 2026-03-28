@@ -48,10 +48,16 @@ typedef struct
 /* Exported macro ------------------------------------------------------------*/
 #define EXTERN_Flash
 
+#define BLOCK_1         0
+#define BLOCK_2         1
+#define BLOCK_SIZE      0x1000
 /* Exported functions ------------------------------------------------------- */
+void SetBlockParmeter(u8 block_index,uint32_t app_size);
+uint32_t Read_BlockSize(u8 block_index);
 void W25Q64_Init(void);
 u8 W25Q64_EraseChip(void);
-u8 W25Q64_WriteData(u8 *data, u32 length);
-u8 W25Q64_WriteData_End(void);
-u8 W25Q64_ReadData(u8 *data, u16 *length);
+void Erase_Flash_Block(u8 block_index);
+u8 W25Q64_WriteData(u8 block_index, u8 *data, u32 length);
+u8 W25Q64_WriteData_End(u8 block_index);
+u8 W25Q64_ReadData(u8 block_index, u8 *data, u16 *length);
 #endif /* __FLASH_H */

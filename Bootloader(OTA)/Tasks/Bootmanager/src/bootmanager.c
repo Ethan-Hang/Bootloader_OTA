@@ -8,6 +8,98 @@
 #include "elog.h"
 #include "aes.h"
 #include "w25qxx_Handler.h"
+#include "at24cxx_driver.h"
+#include "ymodem.h"
+
+extern uint8_t tab_1024[1024];
+extern uint8_t key_scan(void);
+
+unsigned char  IV[16]  = {0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
+                          0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32};
+unsigned char  Key[32] = {0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
+                          0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
+                          0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
+                          0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32};
+
+uint8_t        Mem_Read_buffer[4096];
+
+static int8_t  ex_block_to_app(uint8_t block_index, const char *tag)
+{
+    uint32_t flash_des              = ApplicationAddress;
+    uint32_t flash_size             = 0;
+    uint16_t read_memory_size       = 0;
+    uint32_t w25q_read_status       = 0;
+    uint32_t inter_flash_ram_source = 0;
+
+    flash_size                      = Read_BlockSize(block_index);
+    if (flash_size == 0)
+    {
+        log_e("%s: Invalid block size 0", tag);
+        return -1;
+    }
+
+    if (1 == Flash_erase(flash_des, flash_size))
+    {
+        log_e("%s: Internal flash erase failed", tag);
+        return -1;
+    }
+
+    for (;;)
+    {
+        w25q_read_status =
+            W25Q64_ReadData(block_index, Mem_Read_buffer, &read_memory_size);
+
+        if (1 == w25q_read_status)
+        {
+            log_i("%s: Read complete, total size: 0x%08X (%u bytes)", tag,
+                  flash_size, flash_size);
+            return (int8_t)flash_size;
+        }
+        else if (2 == w25q_read_status)
+        {
+            log_e("%s: Read error from external flash", tag);
+            return -1;
+        }
+        else
+        {
+            inter_flash_ram_source = (uint32_t)Mem_Read_buffer;
+            for (uint16_t write_time = 0; write_time < read_memory_size / 4;
+                 write_time++)
+            {
+                Flash_Write(flash_des, inter_flash_ram_source);
+                flash_des += 4;
+                inter_flash_ram_source += 4;
+            }
+        }
+    }
+}
+
+void ota_apply_update(int32_t file_size)
+{
+    uint32_t current_app_size = 0;
+
+    if (0 == exA_to_exB_AES(file_size))
+    {
+        if (0 == ee_ReadBytes((uint8_t *)&current_app_size, 0x05, 4))
+        {
+            log_e("ota_apply_update: read current app size failed");
+            jump_to_app();
+            return;
+        }
+
+        app_to_exA(current_app_size);
+        exB_to_app();
+        jump_to_app();
+
+        exA_to_app();
+        jump_to_app();
+    }
+    else
+    {
+        log_a("Boot download failed");
+        jump_to_app();
+    }
+}
 
 void disable_all_peripherals(void)
 {
@@ -18,12 +110,10 @@ void disable_all_peripherals(void)
     USART_DeInit(USART1);
     GPIO_DeInit(GPIOA);
 
-    /* Stop SysTick to avoid bootloader tick interrupt after jump. */
     SysTick->CTRL = 0U;
     SysTick->LOAD = 0U;
     SysTick->VAL  = 0U;
 
-    /* Disable and clear all NVIC interrupt lines. */
     for (uint32_t i = 0U; i < 8U; i++)
     {
         NVIC->ICER[i] = 0xFFFFFFFFU;
@@ -38,14 +128,12 @@ void jump_to_app(void)
     uint32_t      jump_addr     = 0x00;
     pFunction     jump_app_func = NULL;
 
-    // wait for log output to complete before jumping to application
     delay_ms(100);
 
     if (0x20000000 < sp && sp < 0x20020000)
     {
         disable_all_peripherals();
 
-        // Reset Handler
         jump_addr = *(__IO uint32_t *)(ApplicationAddress + 4);
 
         __set_MSP(sp);
@@ -57,36 +145,24 @@ void jump_to_app(void)
     {
         log_w("jump_to_app: Invalid stack pointer 0x%08X (not in SRAM range)",
               sp);
-        log_w("No valid application found at address 0x%08X,\r\n Please check "
-              "the "
-              "application or press key to receive new application",
-              ApplicationAddress);
+        log_w(
+            "No valid application found at address 0x%08X,\\r\\n Please check "
+            "the application or press key to receive new application",
+            ApplicationAddress);
     }
 }
 
-unsigned char IV[16]  = {0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
-                         0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32};
-unsigned char Key[32] = {0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
-                         0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
-                         0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32,
-                         0x31, 0X32, 0x31, 0X32, 0x31, 0X32, 0x31, 0X32};
-
-uint8_t Mem_Read_buffer[4096]; // 4KB数据缓冲区
-
-int8_t back_to_app(int32_t fl_size)
+int8_t exA_to_exB_AES(int32_t fl_size)
 {
-    u8  Temp[16];                   // 原密文数据缓存
-    u8  wirteTime              = 0; // 一个解析包写入次数
-    u16 readTime               = 0,
-        readDataCount          = 0; // 读取数据再解密的次数（每次解密16个字节）
-    u32      AppSize           = 0; // 升级包的大小
-    // u32 FlashDestination=ApplicationAddress;
+    u8       Temp[16];
+    u16      readTime          = 0;
+    u16      readDataCount     = 0;
+    u32      AppSize           = 0;
     u16      Read_Memory_Size  = 0;
     u32      Read_Memory_index = 0;
     uint8_t *pu8_IV_IN_OUT     = IV;
     uint8_t *pu8_key256bit     = Key;
-    uint32_t RamSource         = 0;
-    uint32_t AppRunFlashDestination = ApplicationAddress;
+    uint32_t AppRunDestination = ApplicationAddress;
 
     log_d("back_to_app: Starting OTA decryption, fl_size=%d", fl_size);
 
@@ -96,20 +172,18 @@ int8_t back_to_app(int32_t fl_size)
               fl_size, 0x18010 - 1);
         return -1;
     }
-    // 先读一帧，用来解析头文件格式
+
     log_d("back_to_app: Reading first frame from external flash");
-    W25Q64_ReadData(Mem_Read_buffer, &Read_Memory_Size);
+    W25Q64_ReadData(BLOCK_1, Mem_Read_buffer, &Read_Memory_Size);
     if (Read_Memory_Size >= 16)
     {
         memcpy(Temp, Mem_Read_buffer, 16);
-        Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, Temp,
-                                pu8_key256bit); // 解析得到自定义内容+文件大小
+        Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, Temp, pu8_key256bit);
         AppSize =
             (Temp[15] << 24) + (Temp[14] << 16) + (Temp[13] << 8) + Temp[12];
         log_d("back_to_app: Decrypted header, AppSize=0x%08X (%u bytes)",
               AppSize, AppSize);
 
-        // 计算升级包读取次数
         readDataCount = AppSize / 16;
         if (AppSize % 16 != 0)
         {
@@ -126,22 +200,20 @@ int8_t back_to_app(int32_t fl_size)
         return -1;
     }
 
-    // 数据帧
-    // 将待写入区的内容擦除
-    log_d("back_to_app: Erasing flash at 0x%08X, size=0x%x",
-          AppRunFlashDestination, AppSize);
-    uint8_t flash_erase_state = Flash_erase(AppRunFlashDestination, AppSize);
-    if (flash_erase_state == 0)
+    log_d("back_to_app: Erasing flash at 0x%08X, size=0x%x", AppRunDestination,
+          AppSize);
+    if (0 == Flash_erase(AppRunDestination, AppSize))
     {
         log_d("back_to_app: Flash erase completed");
         for (readTime = 0; readTime < readDataCount; readTime++)
         {
-            // 判断下当前buffer下的数据是否读取完毕
             if (Read_Memory_index == Read_Memory_Size)
             {
                 log_d("back_to_app: Reading next frame from external flash "
-                      "(block %u/%u)", readTime, readDataCount);
-                if (2 == W25Q64_ReadData(Mem_Read_buffer, &Read_Memory_Size))
+                      "(block %u/%u)",
+                      readTime, readDataCount);
+                if (2 == W25Q64_ReadData(BLOCK_1, Mem_Read_buffer,
+                                         &Read_Memory_Size))
                 {
                     log_e("back_to_app: Read extern buffer error at block %u",
                           readTime);
@@ -149,127 +221,109 @@ int8_t back_to_app(int32_t fl_size)
                 }
                 Read_Memory_index = 0;
             }
-            // 拷贝16个数据
+
             memcpy(Temp, Mem_Read_buffer + Read_Memory_index, 16);
             Read_Memory_index += 16;
-            // 解析16个数据
-            Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, Temp, pu8_key256bit); // 解析
+            Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, Temp, pu8_key256bit);
 
-            RamSource = (uint32_t)Temp;
-            for (wirteTime = 0; wirteTime < 4; wirteTime++)
-            {
-                Flash_Write(AppRunFlashDestination, *(uint32_t *)RamSource);
-                AppRunFlashDestination += 4;
-                RamSource += 4;
-            }
+            W25Q64_WriteData(BLOCK_2, Temp, 16);
 
-            // 每64块打印一次进度
             if (readTime % 64 == 0)
             {
                 log_d("back_to_app: Decryption progress %u/%u blocks", readTime,
                       readDataCount);
             }
         }
-        log_i("back_to_app: OTA decryption completed successfully, %u bytes "
-              "written to 0x%08X",
-              AppSize, ApplicationAddress);
+        W25Q64_WriteData_End(BLOCK_2);
+
+        log_i("back_to_app: OTA decryption completed, total size: 0x%08X (%u "
+              "bytes)",
+              AppSize, AppSize);
         return 0;
     }
     else
     {
         log_e("back_to_app: Flash erase failed at address 0x%08X",
-              AppRunFlashDestination);
+              AppRunDestination);
         return -1;
     }
 }
 
+int8_t app_to_exA(uint32_t fl_size)
+{
+    uint32_t flash_des = ApplicationAddress;
 
-// int8_t back_to_app(int32_t buf_size)
-// {
-//     uint32_t AppRunFlashDestination = ApplicationAddress;
-//     uint8_t *pu8_IV_IN_OUT          = IV;
-//     uint8_t *pu8_key256bit          = Key;
-//     uint8_t *pu8_temp               = (uint8_t *)BackAppAddress; // 原始数据
-//     uint8_t  Temp[16];          // 原密文数据缓存
-//     uint8_t *pTemp         = Temp;
-//     uint16_t readTime      = 0,
-//              readDataCount = 0; // 读取数据再解密的次数（每次解密16个字节
-//     u32 AppSize            = 0; // 升级包的大小
+    // if (fl_size > (0x18000 - 1))
+    // {
+    //     log_e("app_to_exA: Invalid fl_size: %d (max=0x%x)", fl_size,
+    //           0x18000 - 1);
+    //     return -1;
+    // }
 
-//     log_d("back_to_app: Starting OTA decryption, buf_size=%d", buf_size);
+    Erase_Flash_Block(BLOCK_1);
+    W25Q64_WriteData(BLOCK_1, (uint8_t *)flash_des, fl_size);
+    W25Q64_WriteData_End(BLOCK_1);
+    return 0;
+}
 
-//     /* */
-//     if ((buf_size > (0x18010 - 1)) || (buf_size <= 0))
-//     {
-//         log_e("back_to_app: buf_size exceeds limit or invalid: %d
-//         (max=0x%x)",
-//               buf_size, 0x18010 - 1);
-//         return -1;
-//     }
+int8_t exB_to_app(void)
+{
+    return ex_block_to_app(BLOCK_2, "exB_to_app");
+}
 
-//     memcpy(pTemp, pu8_temp, 16);
-//     pu8_temp += 16;
-//     Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, pTemp,
-//                             pu8_key256bit); // 解析得到自定义内容+文件大小
-//     AppSize =
-//         (pTemp[15] << 24) + (pTemp[14] << 16) + (pTemp[13] << 8) + pTemp[12];
-//     log_d("back_to_app: Decrypted header, AppSize=0x%08X (%u bytes)",
-//     AppSize,
-//           AppSize);
+int8_t exA_to_app(void)
+{
+    return ex_block_to_app(BLOCK_1, "exA_to_app");
+}
 
-//     /*计算需要解密多少次*/
-//     readDataCount = AppSize / 16;
-//     if (AppSize % 16 != 0)
-//     {
-//         readDataCount += 1;
-//     }
-//     log_d("back_to_app: Will decrypt %u blocks (16 bytes each)",
-//     readDataCount);
+void OTA_StateManager(void)
+{
+    uint8_t  ota_state = EE_OTA_EMPTY;
+    uint32_t app_size  = 0;
+    int32_t  file_size = 0;
 
-//     // 擦除运行区数据
-//     log_d("back_to_app: Erasing flash at 0x%08X, size=0x%x",
-//     ApplicationAddress,
-//           AppSize);
-//     if (1 == Flash_erase(ApplicationAddress, AppSize))
-//     {
-//         log_e("back_to_app: Flash erase failed at address 0x%08X",
-//               ApplicationAddress);
-//         return -1;
-//     }
-//     log_d("back_to_app: Flash erase completed");
+    if (0 == ee_ReadBytes(&ota_state, 0x00, 1))
+    {
+        log_e("OTA_StateManager: read OTA state from EEPROM failed");
+        return;
+    }
 
-//     // 读数据的总次数
-//     for (readTime = 0; readTime < readDataCount; readTime++)
-//     {
-//         // 加密原文读取16个字节到临时区中
-//         pTemp = Temp;
-//         memcpy(pTemp, pu8_temp, 16);
-//         pu8_temp += 16;
-//         Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, pTemp,
-//                                 pu8_key256bit); // 解密数据
-//         // 解密后的数据存入App运行区中
-//         for (uint8_t j = 0; j < 16; j += 4)
-//         {
-//             Flash_Write(AppRunFlashDestination, *(uint32_t *)pTemp);
-//             if (*(uint32_t *)AppRunFlashDestination != *(uint32_t *)pTemp)
-//             {
-//                 log_e("back_to_app: Flash write verification failed at 0x%08X
-//                 "
-//                       "(block %u, offset %u)",
-//                       AppRunFlashDestination, readTime, j);
-//                 return -1;
-//             }
-//             AppRunFlashDestination += 4;
-//             pTemp += 4;
-//         }
-//         if (readTime % 64 == 0) // 每64块打印一次进度
-//         {
-//             log_d("back_to_app: Decryption progress %u/%u blocks", readTime,
-//                   readDataCount);
-//         }
-//     }
-//     log_i("back_to_app: OTA decryption completed successfully, %u bytes "
-//           "written to 0x%08X",
-//           AppSize, ApplicationAddress);
-//     return 0;
-// }
+    switch (ota_state)
+    {
+    case EE_OTA_EMPTY:
+        if (key_scan())
+        {
+            file_size = Ymodem_Receive(tab_1024);
+            ota_apply_update(file_size);
+        }
+        else
+        {
+            jump_to_app();
+        }
+        break;
+
+    case EE_OTA_DOWNLOADING:
+        log_a("App download failed");
+        jump_to_app();
+        log_a("No valid application found, waiting for new application...");
+
+        file_size = Ymodem_Receive(tab_1024);
+        ota_apply_update(file_size);
+        break;
+
+    case EE_OTA_DOWNLOAD_FINISHED:
+        if (0 == ee_ReadBytes((uint8_t *)&app_size, 0x01, 4))
+        {
+            log_e("OTA_StateManager: read downloaded app size failed");
+            jump_to_app();
+            break;
+        }
+
+        SetBlockParmeter(BLOCK_1, app_size);
+        ota_apply_update((int32_t)app_size);
+        break;
+
+    default:
+        break;
+    }
+}

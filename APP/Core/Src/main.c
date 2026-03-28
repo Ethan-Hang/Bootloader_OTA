@@ -71,7 +71,8 @@ uint8_t g_ack = 0;
 int     main(void)
 {
     /* USER CODE BEGIN 1 */
-    // SCB->VTOR = FLASH_BASE | 0x00008000;
+    SCB->VTOR = FLASH_BASE | 0x00008000;
+	__enable_irq();
     /* USER CODE END 1 */
 
     /* MCU

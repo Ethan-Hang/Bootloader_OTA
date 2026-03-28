@@ -232,7 +232,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
         // Program data to Flash in 32-bit words
         uint8_t *src_ptr    = ctx->packet_data + PACKET_HEADER;
 
-        W25Q64_WriteData(src_ptr, bytes_to_copy);
+        W25Q64_WriteData(BLOCK_1, src_ptr, bytes_to_copy);
 
         // uint32_t flash_addr = FlashDestination;
 
@@ -455,7 +455,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
     elog_info("Result", "Total bytes received: %d", ctx.bytes_received);
 
     /* Complete the last incomplete block in external flash */
-    W25Q64_WriteData_End();
+    W25Q64_WriteData_End(BLOCK_1);
 
     return (int32_t)ctx.bytes_received; /* Return actual bytes received */
 }

@@ -192,6 +192,20 @@ void ota_download_handler(ota_download_status_t *status,
         DEBUG_OUT(e, "OTA", "EEPROM read-back verification failed");
     }
 
+    wr_ok = ee_WriteBytes((uint8_t *)&app_data_length, 0x01, 4);
+    rd_ok = ee_ReadBytes((uint8_t *)&ee_read_status, 0x01, 4);
+    if ((wr_ok == 0) || (rd_ok == 0))
+    {
+        DEBUG_OUT(e, "OTA", "EEPROM transaction failed (wr=%d, rd=%d)", wr_ok,
+                  rd_ok);
+    }
+    DEBUG_OUT(d, "OTA", "EE wrote app data length 0x%x, EE read back 0x%x",
+              app_data_length, ee_read_status);
+    if (ee_read_status != (uint8_t)(app_data_length & 0xFF))
+    {
+        DEBUG_OUT(e, "OTA", "EEPROM read-back verification failed for app data length");
+    }
+
     osDelay(1000);
     ota_cleanup_download_resources();
 }

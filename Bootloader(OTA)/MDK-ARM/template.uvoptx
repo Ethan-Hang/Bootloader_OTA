@@ -1059,7 +1059,7 @@
   </Group>
 
   <Group>
-    <GroupName>Bsp</GroupName>
+    <GroupName>Bsp/W25qxx</GroupName>
     <tvExp>1</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
@@ -1105,6 +1105,38 @@
       <bDave2>0</bDave2>
       <PathWithFileName>..\Tasks\Bootmanager\src\bootmanager.c</PathWithFileName>
       <FilenameWithoutPath>bootmanager.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+  </Group>
+
+  <Group>
+    <GroupName>Bsp/AT24Cxx</GroupName>
+    <tvExp>1</tvExp>
+    <tvExpOptDlg>0</tvExpOptDlg>
+    <cbSel>0</cbSel>
+    <RteFlg>0</RteFlg>
+    <File>
+      <GroupNumber>11</GroupNumber>
+      <FileNumber>67</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>..\Bsp\AT24Cxx\src\at24cxx_driver.c</PathWithFileName>
+      <FilenameWithoutPath>at24cxx_driver.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+    <File>
+      <GroupNumber>11</GroupNumber>
+      <FileNumber>68</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>..\Bsp\AT24Cxx\src\iic.c</PathWithFileName>
+      <FilenameWithoutPath>iic.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

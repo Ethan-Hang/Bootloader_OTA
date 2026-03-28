@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F411xE</Define>
               <Undefine></Undefine>
-              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc;..\Middlewares\AES\inc;..\Bsp\W25Qxx\inc</IncludePath>
+              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc;..\Middlewares\AES\inc;..\Bsp\W25Qxx\inc;..\Bsp\AT24Cxx\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1656,7 +1656,7 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Bsp</GroupName>
+          <GroupName>Bsp/W25qxx</GroupName>
           <Files>
             <File>
               <FileName>w25qxx.c</FileName>
@@ -1677,6 +1677,21 @@
               <FileName>bootmanager.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Tasks\Bootmanager\src\bootmanager.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Bsp/AT24Cxx</GroupName>
+          <Files>
+            <File>
+              <FileName>at24cxx_driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\AT24Cxx\src\at24cxx_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>iic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\AT24Cxx\src\iic.c</FilePath>
             </File>
           </Files>
         </Group>

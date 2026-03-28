@@ -13,6 +13,8 @@
 #include "ymodem.h"
 #include "flash.h"
 #include "w25qxx_Handler.h"
+#include "at24cxx_driver.h"
+
 
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
@@ -21,11 +23,12 @@ typedef void (*pFunction)(void);
 /* Private variables ---------------------------------------------------------*/
 static __IO uint32_t uwTimingDelay;
 RCC_ClocksTypeDef    RCC_Clocks;
+uint8_t              tab_1024[1024];
 /* Note: g_buf is no longer needed - OTA now writes directly to Flash */
 /* Private function prototypes -----------------------------------------------*/
 
 
-uint8_t key_scan(void)
+uint8_t              key_scan(void)
 {
     if (Bit_RESET == GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0))
     {
@@ -73,56 +76,17 @@ int main(void)
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_start();
 
+    // ee_Erase();
+    ee_CheckOk();
     W25Q64_Init();
 
     // TIM_Config();
-
-    if (key_scan())
-    {
-        int32_t buf_size = 0;
-        buf_size = Ymodem_Receive(NULL); /* buf parameter is no longer used,
-                                            data goes directly to Flash */
-        log_i("Ymodem receive complete, file size: %d bytes", buf_size);
-
-        int8_t result = back_to_app(buf_size);
-        if (result != 0)
-        {
-            log_e("Failed to copy application image to main Flash");
-        }
-        else
-        {
-            log_i("Application image copied to main Flash successfully");
-            jump_to_app();
-        }        
-    }
-    else
-    {
-        jump_to_app();
-    }
 
 
     /* Infinite loop */
     while (1)
     {
-        if (key_scan())
-        {
-            int32_t buf_size = 0;
-            buf_size = Ymodem_Receive(NULL);
-            
-            log_i("Ymodem receive complete, file size: %d bytes", buf_size);
-
-            int8_t result = back_to_app(buf_size);
-            if (result == 0)
-            {
-                log_i("Application image copied to main Flash successfully");
-                jump_to_app();
-            }
-            else
-            {
-                log_e("Failed to copy application image to main Flash");
-            }
-        }
-        delay_ms(50);
+        OTA_StateManager();
     }
 }
 
