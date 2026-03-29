@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>STM32F4x1</TargetName>
+      <TargetName>BOOTLOADER</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <pArmCC>5060960::V5.06 update 7 (build 960)::.\ARM-COMPLIER-506</pArmCC>
@@ -50,7 +50,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Objects\</OutputDirectory>
-          <OutputName>Bootloader</OutputName>
+          <OutputName>BOOTLOADER</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>

@@ -222,6 +222,7 @@ void ota_wait_req_handler(ota_download_status_t *status,
 
     HAL_UART_Transmit(&huart1, (uint8_t *)"Waiting for update request...\r\n",
                       32, HAL_MAX_DELAY);
+    // Start DMA reception to receive the update request command after download completion
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_otacmd, 4);
 
     uint16_t rec_length = 0;
@@ -273,7 +274,7 @@ void ota_task_runnable(void *argument)
     };
     ota_download_status_t ota_status = OTA_WAIT_FOR_DOWNLOAD_REQ;
     ee_os_status_t        ee_status  = EE_OTA_EMPTY;
-    ee_WriteBytes((uint8_t *)&ee_status, 0x00, 1);
+    ee_WriteBytes((uint8_t *)&ee_status, EE_OTA_EMPTY, 1);
 
     /* Infinite loop */
     for (;;)

@@ -349,10 +349,10 @@ void OTA_StateManager(void)
         else
         {
             send_wait_time++;
-            if (send_wait_time % 20000 == 1)
+            if (send_wait_time >= 20000U)
             {
                 DEBUG_OUT(w, "", "No app and no update, wait for key press to download");
-                send_wait_time = 0;
+                send_wait_time = 0U;
             }
         }
         break;        
