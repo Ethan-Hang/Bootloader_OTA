@@ -35,9 +35,18 @@ static st_W25Q_Handler s_ast_W25Q_Handler[2];
 
 void SetBlockParmeter(u8 block_index,uint32_t app_size)
 {
+    u32 sector_size = W25Qx_Para.SUBSECTOR_SIZE;
+
+    if (sector_size == 0)
+    {
+        sector_size = W25QXXXX_SUBSECTOR_SIZE;
+    }
+
     s_ast_W25Q_Handler[block_index].write_index = app_size;
-    s_ast_W25Q_Handler[block_index].write_databuf_index = app_size % BLOCK_SIZE;
-    s_ast_W25Q_Handler[block_index].write_sector_index = app_size / BLOCK_SIZE;
+    s_ast_W25Q_Handler[block_index].write_databuf_index = app_size % sector_size;
+    s_ast_W25Q_Handler[block_index].write_sector_index = app_size / sector_size;
+    s_ast_W25Q_Handler[block_index].read_index = 0;
+    s_ast_W25Q_Handler[block_index].read_sector_index = 0;
 }
 
 uint32_t Read_BlockSize(u8 block_index)

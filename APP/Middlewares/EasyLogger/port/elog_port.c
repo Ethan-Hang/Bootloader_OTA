@@ -66,8 +66,21 @@ void elog_port_deinit(void)
 void elog_port_output(const char *log, size_t size)
 {
 
-    /* add your code here */
-    SEGGER_RTT_Write(0, log, size);
+    /* Route APP logs to RTT virtual Terminal 1. */
+    if ((log == NULL) || (size == 0U))
+    {
+        return;
+    }
+
+    if (SEGGER_RTT_SetTerminal(1) >= 0)
+    {
+        SEGGER_RTT_Write(0, log, (unsigned)size);
+        SEGGER_RTT_SetTerminal(0);
+    }
+    else
+    {
+        SEGGER_RTT_Write(0, log, (unsigned)size);
+    }
     // printf("%.*s", size, log);
 }
 

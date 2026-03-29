@@ -67,7 +67,7 @@ void elog_port_output(const char *log, size_t size)
 {
 
     /* add your code here */
-    SEGGER_RTT_Write(1, log, size);
+    SEGGER_RTT_Write(0, log, size);
     // printf("%.*s", size, log);
 }
 

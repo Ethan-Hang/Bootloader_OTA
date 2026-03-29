@@ -30,7 +30,7 @@ uint8_t              tab_1024[1024];
 /* Private function prototypes -----------------------------------------------*/
 
 
-uint8_t              key_scan(void)
+uint8_t key_scan(void)
 {
     if (Bit_RESET == GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0))
     {
@@ -88,10 +88,11 @@ int main(void)
 
     uint8_t ee_read_ota_status = 0;
     ee_ReadBytes(&ee_read_ota_status, 0x00, 1);
-    uint8_t ee_read_ota_size = 0;
-    ee_ReadBytes(&ee_read_ota_size, 0x05, 4);
-    DEBUG_OUT(d, "EEPROM", "OTA state: %d, App size: %d bytes", 
-                         ee_read_ota_status, ee_read_ota_size);
+    uint32_t ee_read_ota_size = 0;
+    ee_ReadBytes((uint8_t *)&ee_read_ota_size, 0x05,
+                 sizeof(ee_read_ota_size));
+    DEBUG_OUT(d, "EEPROM", "OTA state: %d, App size: %lu bytes",
+              ee_read_ota_status, (unsigned long)ee_read_ota_size);
 
 
     DEBUG_OUT(i, "", "this is bootloader");

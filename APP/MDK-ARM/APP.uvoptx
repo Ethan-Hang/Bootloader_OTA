@@ -152,9 +152,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>148</LineNumber>
+          <LineNumber>166</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134243564</Address>
+          <Address>134270888</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -163,14 +163,14 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>..\User\OTA\src\OTA.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\APP\../User/OTA/src/OTA.c\148</Expression>
+          <Expression>\\APP\../User/OTA/src/OTA.c\166</Expression>
         </Bp>
         <Bp>
           <Number>1</Number>
           <Type>0</Type>
-          <LineNumber>147</LineNumber>
+          <LineNumber>196</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134243556</Address>
+          <Address>134270942</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -179,14 +179,14 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>..\User\OTA\src\OTA.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\APP\../User/OTA/src/OTA.c\147</Expression>
+          <Expression>\\APP\../User/OTA/src/OTA.c\196</Expression>
         </Bp>
         <Bp>
           <Number>2</Number>
           <Type>0</Type>
-          <LineNumber>221</LineNumber>
+          <LineNumber>209</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134220220</Address>
+          <Address>134270952</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -195,39 +195,7 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>..\User\OTA\src\OTA.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\APP\../User/OTA/src/OTA.c\221</Expression>
-        </Bp>
-        <Bp>
-          <Number>3</Number>
-          <Type>0</Type>
-          <LineNumber>280</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134235622</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Middlewares\Ymodem\src\ymodem.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\APP\../Middlewares/Ymodem/src/ymodem.c\280</Expression>
-        </Bp>
-        <Bp>
-          <Number>4</Number>
-          <Type>0</Type>
-          <LineNumber>218</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134220200</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\User\OTA\src\OTA.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\APP\../User/OTA/src/OTA.c\218</Expression>
+          <Expression>\\APP\../User/OTA/src/OTA.c\209</Expression>
         </Bp>
       </Breakpoint>
       <MemoryWindow1>

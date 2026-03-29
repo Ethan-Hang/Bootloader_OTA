@@ -231,6 +231,8 @@ void ota_wait_req_handler(ota_download_status_t *status,
         if (s_otacmd[0] == 0x77 && s_otacmd[1] == 0x88 && s_otacmd[2] == 0x99)
         {
             *status = OTA_DOWNLOAD_END;
+            HAL_UART_Transmit(&huart1, (uint8_t *)"Update request received, "
+            "press key to reboot and apply update\r\n", 53, HAL_MAX_DELAY);
         }
     }
     else

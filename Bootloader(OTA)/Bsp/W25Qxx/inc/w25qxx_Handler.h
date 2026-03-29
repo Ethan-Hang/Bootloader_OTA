@@ -50,7 +50,8 @@ typedef struct
 
 #define BLOCK_1         0
 #define BLOCK_2         1
-#define BLOCK_SIZE      0x1000
+/* Reserve 128KB per OTA slot so BLOCK_1 and BLOCK_2 never overlap. */
+#define BLOCK_SIZE      0x20000UL
 /* Exported functions ------------------------------------------------------- */
 void SetBlockParmeter(u8 block_index,uint32_t app_size);
 uint32_t Read_BlockSize(u8 block_index);

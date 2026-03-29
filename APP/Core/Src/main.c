@@ -68,7 +68,7 @@ uint8_t g_ack = 0;
  * @brief  The application entry point.
  * @retval int
  */
-int     main(void)
+int main(void)
 {
     /* USER CODE BEGIN 1 */
     SCB->VTOR = FLASH_BASE | 0x00008000;

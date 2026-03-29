@@ -32,5 +32,6 @@ void   ota_apply_update(int32_t file_size);
 #define EE_OTA_EMPTY             0x00
 #define EE_OTA_DOWNLOADING       0x11
 #define EE_OTA_DOWNLOAD_FINISHED 0x22
+#define EE_INIT_NO_APP           0xFF
 
 #endif /* __BOOT_MANAGER_H */
