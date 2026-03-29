@@ -98,10 +98,14 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
     {
         if (s_otacmd[0] == 0x11 && s_otacmd[1] == 0x22 && s_otacmd[2] == 0x33)
         {
+            /* Ensure each OTA session starts writing from external flash offset 0. */
+            W25Q64_Init();
+            DEBUG_OUT(d, "OTA", "W25Q handler state reset for new download");
+
             *status = OTA_DOWNLOAD;
 
             Queue_AppDataBuffer =
-                xQueueCreate(4, sizeof(Ymodem_RxContext_t **));
+                xQueueCreate(4, sizeof(Ymodem_RxContext_t *));
             Semaphore_ExtFlashState = xSemaphoreCreateBinary();
             if (NULL == Queue_AppDataBuffer || NULL == Semaphore_ExtFlashState)
             {
@@ -119,9 +123,6 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
                 *status = OTA_WAIT_FOR_DOWNLOAD_REQ;
                 return;
             }
-
-            /* Give the binary semaphore to make it available */
-            xSemaphoreGive(Semaphore_ExtFlashState);
 
             xTaskNotifyStateClear((TaskHandle_t)OTA_taskHandle);
             DownloadAppData_taskHandle =
@@ -178,6 +179,7 @@ void ota_download_handler(ota_download_status_t *status,
 
     uint8_t        wr_ok = ee_WriteBytes((uint8_t *)ee_status, 0x00, 1);
     ee_os_status_t ee_read_status = EE_OTA_EMPTY;
+    int32_t        app_data_length_readback = 0;
     uint8_t        rd_ok = ee_ReadBytes((uint8_t *)&ee_read_status, 0x00, 1);
     if ((wr_ok == 0) || (rd_ok == 0))
     {
@@ -192,18 +194,22 @@ void ota_download_handler(ota_download_status_t *status,
         DEBUG_OUT(e, "OTA", "EEPROM read-back verification failed");
     }
 
-    wr_ok = ee_WriteBytes((uint8_t *)&app_data_length, 0x01, 4);
-    rd_ok = ee_ReadBytes((uint8_t *)&ee_read_status, 0x01, 4);
+    wr_ok = ee_WriteBytes((uint8_t *)&app_data_length, 0x01,
+                          sizeof(app_data_length));
+    rd_ok = ee_ReadBytes((uint8_t *)&app_data_length_readback, 0x01,
+                         sizeof(app_data_length_readback));
     if ((wr_ok == 0) || (rd_ok == 0))
     {
         DEBUG_OUT(e, "OTA", "EEPROM transaction failed (wr=%d, rd=%d)", wr_ok,
                   rd_ok);
     }
     DEBUG_OUT(d, "OTA", "EE wrote app data length 0x%x, EE read back 0x%x",
-              app_data_length, ee_read_status);
-    if (ee_read_status != (uint8_t)(app_data_length & 0xFF))
+              app_data_length, app_data_length_readback);
+    if (app_data_length_readback != app_data_length)
     {
-        DEBUG_OUT(e, "OTA", "EEPROM read-back verification failed for app data length");
+        DEBUG_OUT(
+            e, "OTA",
+            "EEPROM read-back verification failed for app data length");
     }
 
     osDelay(1000);
@@ -304,7 +310,6 @@ void DownloadAppData_task_runnable(void *argument)
             break;
         }
 
-        xSemaphoreTake(Semaphore_ExtFlashState, 0);
         if (ctx->size <= 0)
         {
             DEBUG_OUT(
@@ -315,7 +320,7 @@ void DownloadAppData_task_runnable(void *argument)
             continue;
         }
 
-        W25Q64_WriteData(ctx->packet_data, ctx->packet_length);
+        W25Q64_WriteData(ctx->packet_data + PACKET_HEADER, ctx->packet_length);
 
         xSemaphoreGive(Semaphore_ExtFlashState);
     }

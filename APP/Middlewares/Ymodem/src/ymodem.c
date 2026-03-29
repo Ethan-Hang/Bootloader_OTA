@@ -176,20 +176,18 @@ static uint32_t Send_Byte(uint8_t c)
 
 static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
 {
-    BaseType_t retval = pdFALSE;
-
-    ctx->packet_data  = ctx->packet_data + PACKET_HEADER;
-    retval            = xQueueSendToBack(Queue_AppDataBuffer, &ctx, 0);
-    if (pdFALSE == retval)
+    if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
     {
         DEBUG_OUT(e, "Ymodem", "Failed to send file data to queue");
-        // return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        return;
     }
-    ctx->packet_data = ctx->packet_data - PACKET_HEADER;
 
-    xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
-
-    xSemaphoreGive(Semaphore_ExtFlashState);
+    /* Wait until download task consumes the FILE_INFO message. */
+    if (xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY) != pdTRUE)
+    {
+        DEBUG_OUT(e, "Ymodem", "Failed to sync file info with download task");
+        return;
+    }
 
     if (ctx->buf[0] == ctx->packet_data)
     {
@@ -203,17 +201,19 @@ static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
 
 static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
 {
-    BaseType_t retval = pdFALSE;
-    retval            = xQueueSendToBack(Queue_AppDataBuffer, &ctx, 0);
-    if (pdFALSE == retval)
+    if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
     {
         DEBUG_OUT(e, "Ymodem", "Failed to send file info to queue");
-        // return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        return;
     }
 
-    xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY);
-
-    xSemaphoreGive(Semaphore_ExtFlashState);
+    /* Wait until download task writes this packet into W25Q before reusing
+     * context buffers. */
+    if (xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY) != pdTRUE)
+    {
+        DEBUG_OUT(e, "Ymodem", "Failed to sync file data with download task");
+        return;
+    }
 
     if (ctx->buf[0] == ctx->packet_data)
     {
@@ -354,6 +354,9 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
         {
             bytes_to_copy = ctx->size - ctx->bytes_received;
         }
+
+        /* Consumer writes payload bytes only (without 3-byte Ymodem header). */
+        ctx->packet_length = bytes_to_copy;
 
         Ymodem_File_Data_User_Handler(ctx);
 

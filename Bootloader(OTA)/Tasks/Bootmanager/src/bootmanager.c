@@ -6,6 +6,7 @@
 
 #include "bootmanager.h"
 #include "elog.h"
+#include "../../../Debug/inc/Debug.h"
 #include "aes.h"
 #include "w25qxx_Handler.h"
 #include "at24cxx_driver.h"
@@ -34,13 +35,13 @@ static int8_t  ex_block_to_app(uint8_t block_index, const char *tag)
     flash_size                      = Read_BlockSize(block_index);
     if (flash_size == 0)
     {
-        log_e("%s: Invalid block size 0", tag);
+        DEBUG_OUT(e, "", "%s: Invalid block size 0", tag);
         return -1;
     }
 
     if (1 == Flash_erase(flash_des, flash_size))
     {
-        log_e("%s: Internal flash erase failed", tag);
+        DEBUG_OUT(e, "", "%s: Internal flash erase failed", tag);
         return -1;
     }
 
@@ -51,13 +52,13 @@ static int8_t  ex_block_to_app(uint8_t block_index, const char *tag)
 
         if (1 == w25q_read_status)
         {
-            log_i("%s: Read complete, total size: 0x%08X (%u bytes)", tag,
-                  flash_size, flash_size);
+            DEBUG_OUT(i, "", "%s: Read complete, total size: 0x%08X (%u bytes)",
+                      tag, flash_size, flash_size);
             return (int8_t)flash_size;
         }
         else if (2 == w25q_read_status)
         {
-            log_e("%s: Read error from external flash", tag);
+            DEBUG_OUT(e, "", "%s: Read error from external flash", tag);
             return -1;
         }
         else
@@ -82,7 +83,7 @@ void ota_apply_update(int32_t file_size)
     {
         if (0 == ee_ReadBytes((uint8_t *)&current_app_size, 0x05, 4))
         {
-            log_e("ota_apply_update: read current app size failed");
+            DEBUG_OUT(e, "", "ota_apply_update: read current app size failed");
             jump_to_app();
             return;
         }
@@ -96,7 +97,7 @@ void ota_apply_update(int32_t file_size)
     }
     else
     {
-        log_a("Boot download failed");
+        DEBUG_OUT(a, "", "Boot download failed");
         jump_to_app();
     }
 }
@@ -143,9 +144,12 @@ void jump_to_app(void)
     }
     else
     {
-        log_w("jump_to_app: Invalid stack pointer 0x%08X (not in SRAM range)",
-              sp);
-        log_w(
+        DEBUG_OUT(
+            w, "",
+            "jump_to_app: Invalid stack pointer 0x%08X (not in SRAM range)",
+            sp);
+        DEBUG_OUT(
+            w, "",
             "No valid application found at address 0x%08X,\\r\\n Please check "
             "the application or press key to receive new application",
             ApplicationAddress);
@@ -164,16 +168,19 @@ int8_t exA_to_exB_AES(int32_t fl_size)
     uint8_t *pu8_key256bit     = Key;
     uint32_t AppRunDestination = ApplicationAddress;
 
-    log_d("back_to_app: Starting OTA decryption, fl_size=%d", fl_size);
+    DEBUG_OUT(d, "", "back_to_app: Starting OTA decryption, fl_size=%d",
+              fl_size);
 
     if ((fl_size > (0x18010 - 1)) || (fl_size <= 0))
     {
-        log_e("back_to_app: fl_size exceeds limit or invalid: %d (max=0x%x)",
-              fl_size, 0x18010 - 1);
+        DEBUG_OUT(
+            e, "",
+            "back_to_app: fl_size exceeds limit or invalid: %d (max=0x%x)",
+            fl_size, 0x18010 - 1);
         return -1;
     }
 
-    log_d("back_to_app: Reading first frame from external flash");
+    DEBUG_OUT(d, "", "back_to_app: Reading first frame from external flash");
     W25Q64_ReadData(BLOCK_1, Mem_Read_buffer, &Read_Memory_Size);
     if (Read_Memory_Size >= 16)
     {
@@ -181,42 +188,47 @@ int8_t exA_to_exB_AES(int32_t fl_size)
         Aes_IV_key256bit_Decode(pu8_IV_IN_OUT, Temp, pu8_key256bit);
         AppSize =
             (Temp[15] << 24) + (Temp[14] << 16) + (Temp[13] << 8) + Temp[12];
-        log_d("back_to_app: Decrypted header, AppSize=0x%08X (%u bytes)",
-              AppSize, AppSize);
+        DEBUG_OUT(d, "",
+                  "back_to_app: Decrypted header, AppSize=0x%08X (%u bytes)",
+                  AppSize, AppSize);
 
         readDataCount = AppSize / 16;
         if (AppSize % 16 != 0)
         {
             readDataCount += 1;
         }
-        log_d("back_to_app: Will decrypt %u blocks (16 bytes each)",
-              readDataCount);
+        DEBUG_OUT(d, "", "back_to_app: Will decrypt %u blocks (16 bytes each)",
+                  readDataCount);
         Read_Memory_index += 16;
     }
     else
     {
-        log_e("back_to_app: Read_Memory_Size too small: %u (need >= 16)",
-              Read_Memory_Size);
+        DEBUG_OUT(e, "",
+                  "back_to_app: Read_Memory_Size too small: %u (need >= 16)",
+                  Read_Memory_Size);
         return -1;
     }
 
-    log_d("back_to_app: Erasing flash at 0x%08X, size=0x%x", AppRunDestination,
-          AppSize);
+    DEBUG_OUT(d, "", "back_to_app: Erasing flash at 0x%08X, size=0x%x",
+              AppRunDestination, AppSize);
     if (0 == Flash_erase(AppRunDestination, AppSize))
     {
-        log_d("back_to_app: Flash erase completed");
+        DEBUG_OUT(d, "", "back_to_app: Flash erase completed");
         for (readTime = 0; readTime < readDataCount; readTime++)
         {
             if (Read_Memory_index == Read_Memory_Size)
             {
-                log_d("back_to_app: Reading next frame from external flash "
-                      "(block %u/%u)",
-                      readTime, readDataCount);
+                DEBUG_OUT(d, "",
+                          "back_to_app: Reading next frame from external flash "
+                          "(block %u/%u)",
+                          readTime, readDataCount);
                 if (2 == W25Q64_ReadData(BLOCK_1, Mem_Read_buffer,
                                          &Read_Memory_Size))
                 {
-                    log_e("back_to_app: Read extern buffer error at block %u",
-                          readTime);
+                    DEBUG_OUT(
+                        e, "",
+                        "back_to_app: Read extern buffer error at block %u",
+                        readTime);
                     return -1;
                 }
                 Read_Memory_index = 0;
@@ -230,21 +242,24 @@ int8_t exA_to_exB_AES(int32_t fl_size)
 
             if (readTime % 64 == 0)
             {
-                log_d("back_to_app: Decryption progress %u/%u blocks", readTime,
-                      readDataCount);
+                DEBUG_OUT(d, "",
+                          "back_to_app: Decryption progress %u/%u blocks",
+                          readTime, readDataCount);
             }
         }
         W25Q64_WriteData_End(BLOCK_2);
 
-        log_i("back_to_app: OTA decryption completed, total size: 0x%08X (%u "
-              "bytes)",
-              AppSize, AppSize);
+        DEBUG_OUT(
+            i, "",
+            "back_to_app: OTA decryption completed, total size: 0x%08X (%u "
+            "bytes)",
+            AppSize, AppSize);
         return 0;
     }
     else
     {
-        log_e("back_to_app: Flash erase failed at address 0x%08X",
-              AppRunDestination);
+        DEBUG_OUT(e, "", "back_to_app: Flash erase failed at address 0x%08X",
+                  AppRunDestination);
         return -1;
     }
 }
@@ -284,7 +299,7 @@ void OTA_StateManager(void)
 
     if (0 == ee_ReadBytes(&ota_state, 0x00, 1))
     {
-        log_e("OTA_StateManager: read OTA state from EEPROM failed");
+        DEBUG_OUT(e, "", "OTA_StateManager: read OTA state from EEPROM failed");
         return;
     }
 
@@ -303,9 +318,10 @@ void OTA_StateManager(void)
         break;
 
     case EE_OTA_DOWNLOADING:
-        log_a("App download failed");
+        DEBUG_OUT(a, "", "App download failed");
         jump_to_app();
-        log_a("No valid application found, waiting for new application...");
+        DEBUG_OUT(a, "",
+                  "No valid application found, waiting for new application...");
 
         file_size = Ymodem_Receive(tab_1024);
         ota_apply_update(file_size);
@@ -314,7 +330,8 @@ void OTA_StateManager(void)
     case EE_OTA_DOWNLOAD_FINISHED:
         if (0 == ee_ReadBytes((uint8_t *)&app_size, 0x01, 4))
         {
-            log_e("OTA_StateManager: read downloaded app size failed");
+            DEBUG_OUT(e, "",
+                      "OTA_StateManager: read downloaded app size failed");
             jump_to_app();
             break;
         }

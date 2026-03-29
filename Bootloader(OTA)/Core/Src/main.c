@@ -7,9 +7,11 @@
 #include "gpio.h"
 #include "uart.h"
 #include "spi.h"
+#include "iic.h"
 
 #include "bootmanager.h"
 #include "elog.h"
+#include "../../Debug/inc/Debug.h"
 #include "ymodem.h"
 #include "flash.h"
 #include "w25qxx_Handler.h"
@@ -76,9 +78,23 @@ int main(void)
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_start();
 
-    // ee_Erase();
     ee_CheckOk();
+
+    // ee_Erase();
+    // W25Q64_EraseChip();
+    // DEBUG_OUT(i, "", "EEPROM and external flash erased successfully");
+
     W25Q64_Init();
+
+    uint8_t ee_read_ota_status = 0;
+    ee_ReadBytes(&ee_read_ota_status, 0x00, 1);
+    uint8_t ee_read_ota_size = 0;
+    ee_ReadBytes(&ee_read_ota_size, 0x05, 4);
+    DEBUG_OUT(d, "EEPROM", "OTA state: %d, App size: %d bytes", 
+                         ee_read_ota_status, ee_read_ota_size);
+
+
+    DEBUG_OUT(i, "", "this is bootloader");
 
     // TIM_Config();
 
@@ -87,6 +103,8 @@ int main(void)
     while (1)
     {
         OTA_StateManager();
+        // jump_to_app();
+        delay_ms(500);
     }
 }
 

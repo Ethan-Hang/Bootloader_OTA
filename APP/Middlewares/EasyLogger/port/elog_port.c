@@ -42,7 +42,7 @@ ElogErrCode elog_port_init(void)
     ElogErrCode result = ELOG_NO_ERR;
 
     /* add your code here */
-    SEGGER_RTT_Init();
+    // SEGGER_RTT_Init();
 
     return result;
 }
