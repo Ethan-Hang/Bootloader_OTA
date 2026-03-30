@@ -24,9 +24,11 @@ typedef enum
 
 typedef enum
 {
-    EE_OTA_EMPTY               = 0x00,
+    EE_OTA_NO_APP_UPDATE       = 0x00,
     EE_OTA_DOWNLOADING         = 0x11,
     EE_OTA_DOWNLOAD_FINISHED   = 0x22,
+    EE_OTA_APP_CHECK_START     = 0x33,
+    EE_OTA_APP_CHECK_SUCCESS   = 0x44,
 } ee_os_status_t;
 
 

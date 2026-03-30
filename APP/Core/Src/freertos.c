@@ -127,7 +127,7 @@ void StartDefaultTask(void *argument)
     for (;;)
     {
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-        osDelay(100);
+        osDelay(500);
     }
   /* USER CODE END StartDefaultTask */
 }

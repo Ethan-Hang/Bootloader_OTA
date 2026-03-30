@@ -285,7 +285,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
 
         // Calculate and display progress (integer math, no float)
         uint32_t progress_percent = (ctx->bytes_received * 100) / ctx->size;
-        DEBUG_OUT(d, "FileData", "Progress: %d/%d bytes (%d%%)",
+        DEBUG_OUT(i, "FileData", "Progress: %d/%d bytes (%d%%)",
                   ctx->bytes_received, ctx->size, progress_percent);
     }
 

@@ -27,6 +27,13 @@ const osThreadAttr_t OTA_task_attributes = {
 
 void        DownloadAppData_task_runnable(void *argument);
 
+void soft_reset(void)
+{
+    // diable all interrupts except NMI & RESET
+    __disable_fault_irq();
+    NVIC_SystemReset();
+}
+
 static void ota_cleanup_download_resources(void)
 {
     Ymodem_RxContext_t *stop_ctx = NULL;
@@ -174,11 +181,11 @@ void ota_download_handler(ota_download_status_t *status,
     else
     {
         *status    = OTA_WAIT_FOR_DOWNLOAD_REQ;
-        *ee_status = EE_OTA_EMPTY;
+        *ee_status = EE_OTA_NO_APP_UPDATE;
     }
 
     uint8_t        wr_ok = ee_WriteBytes((uint8_t *)ee_status, 0x00, 1);
-    ee_os_status_t ee_read_status = EE_OTA_EMPTY;
+    ee_os_status_t ee_read_status = EE_OTA_NO_APP_UPDATE;
     int32_t        app_data_length_readback = 0;
     uint8_t        rd_ok = ee_ReadBytes((uint8_t *)&ee_read_status, 0x00, 1);
     if ((wr_ok == 0) || (rd_ok == 0))
@@ -252,9 +259,7 @@ void ota_download_end_handler(ota_download_status_t *status,
     int8_t retval = Key_Scan();
     if (1 == retval)
     {
-        // diable all interrupts except NMI & RESET
-        __disable_fault_irq();
-        NVIC_SystemReset();
+        soft_reset();
     }
     else
     {
@@ -273,8 +278,8 @@ void ota_task_runnable(void *argument)
         [OTA_DOWNLOAD_END]          = ota_download_end_handler,
     };
     ota_download_status_t ota_status = OTA_WAIT_FOR_DOWNLOAD_REQ;
-    ee_os_status_t        ee_status  = EE_OTA_EMPTY;
-    ee_WriteBytes((uint8_t *)&ee_status, EE_OTA_EMPTY, 1);
+    ee_os_status_t        ee_status  = EE_OTA_NO_APP_UPDATE;
+    ee_WriteBytes((uint8_t *)&ee_status, EE_OTA_NO_APP_UPDATE, 1);
 
     /* Infinite loop */
     for (;;)
