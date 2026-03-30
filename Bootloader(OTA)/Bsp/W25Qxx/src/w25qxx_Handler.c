@@ -1,51 +1,59 @@
 /******************************************************************************
  * Copyright (C) 2024 EternalChip, Inc.(Gmbh) or its affiliates.
- * 
+ *
  * All Rights Reserved.
- * 
+ *
  * @file W25Q_Handler.c
- * 
- * @par dependencies 
+ *
+ * @par dependencies
  * - W25Q_Handler.h
- * 
- * @author Jack | R&D Dept. | EternalChip 立芯嵌入式
- * 
+ *
+ * @author Jack | R&D Dept. | EternalChip
+ *
  * @brief Functions related to reading and writing in the chip's flash area.
- * 
- * Processing flow:
- * 
- * call directly.
- * 
+ *
  * @version V1.0 2024-09-13
  *
  * @note 1 tab == 4 spaces!
- * 
+ *
  *****************************************************************************/
 /* Includes ------------------------------------------------------------------*/
 #include "w25qxx_Handler.h"
+#include "../../../Middlewares/SFUD/inc/sfud.h"
 #include "w25qxx.h"
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-/* Private macro -------------------------------------------------------------*/
+#include <string.h>
+
 /* Private variables ---------------------------------------------------------*/
-static st_W25Q_Handler s_ast_W25Q_Handler[2];
-/* Private function prototypes -----------------------------------------------*/
-/* Private functions ---------------------------------------------------------*/
-/* extern variables ---------------------------------------------------------*/
+static st_W25Q_Handler   s_ast_W25Q_Handler[2];
 
-void SetBlockParmeter(u8 block_index,uint32_t app_size)
+static const sfud_flash *W25Q64_GetReadyFlash(void)
 {
-    u32 sector_size = W25Qx_Para.SUBSECTOR_SIZE;
+    const sfud_flash *flash = sfud_get_device(SFUD_W25Q64_DEVICE_INDEX);
 
-    if (sector_size == 0)
+    if ((flash != NULL) && (flash->init_ok == false))
     {
-        sector_size = W25QXXXX_SUBSECTOR_SIZE;
+        (void)sfud_init();
+        flash = sfud_get_device(SFUD_W25Q64_DEVICE_INDEX);
     }
 
+    if ((flash == NULL) || (flash->init_ok == false))
+    {
+        return NULL;
+    }
+
+    return flash;
+}
+
+void SetBlockParmeter(u8 block_index, uint32_t app_size)
+{
+    const uint32_t subsector_size               = W25QXXXX_SUBSECTOR_SIZE;
+
     s_ast_W25Q_Handler[block_index].write_index = app_size;
-    s_ast_W25Q_Handler[block_index].write_databuf_index = app_size % sector_size;
-    s_ast_W25Q_Handler[block_index].write_sector_index = app_size / sector_size;
-    s_ast_W25Q_Handler[block_index].read_index = 0;
+    s_ast_W25Q_Handler[block_index].write_databuf_index =
+        (u16)(app_size % subsector_size);
+    s_ast_W25Q_Handler[block_index].write_sector_index =
+        (u8)(app_size / subsector_size);
+    s_ast_W25Q_Handler[block_index].read_index        = 0;
     s_ast_W25Q_Handler[block_index].read_sector_index = 0;
 }
 
@@ -54,192 +62,156 @@ uint32_t Read_BlockSize(u8 block_index)
     return s_ast_W25Q_Handler[block_index].write_index;
 }
 
-/**
- * @brief w25q初始化
- * 
- * @param None
- * 
- * @return: None
- */
 void W25Q64_Init(void)
 {
-    W25Qx_Init();
-    s_ast_W25Q_Handler[0].read_index = 0;
-    s_ast_W25Q_Handler[0].read_sector_index = 0;
-    s_ast_W25Q_Handler[0].write_databuf_index = 0;
-    s_ast_W25Q_Handler[0].write_index = 0;
-    s_ast_W25Q_Handler[0].write_sector_index = 0;
-
-    s_ast_W25Q_Handler[1].read_index = 0;
-    s_ast_W25Q_Handler[1].read_sector_index = 0;
-    s_ast_W25Q_Handler[1].write_databuf_index = 0;
-    s_ast_W25Q_Handler[1].write_index = 0;
-    s_ast_W25Q_Handler[1].write_sector_index = 0;
+    (void)sfud_init();
+    memset(s_ast_W25Q_Handler, 0, sizeof(s_ast_W25Q_Handler));
 }
 
 void Erase_Flash_Block(u8 block_index)
 {
-	s_ast_W25Q_Handler[block_index].read_index = 0;
-	s_ast_W25Q_Handler[block_index].read_sector_index = 0;
-	s_ast_W25Q_Handler[block_index].write_databuf_index = 0;
-	s_ast_W25Q_Handler[block_index].write_index = 0;
-	s_ast_W25Q_Handler[block_index].write_sector_index = 0;
+    uint32_t erase_addr = block_index * BLOCK_SIZE;
+    uint32_t erase_end  = erase_addr + BLOCK_SIZE;
+
+    while (erase_addr < erase_end)
+    {
+        W25Qx_Erase_Block(erase_addr);
+        erase_addr += W25QXXXX_SUBSECTOR_SIZE;
+    }
+
+    memset(&s_ast_W25Q_Handler[block_index], 0, sizeof(st_W25Q_Handler));
 }
 
-/**
- * @brief w25q芯片擦除
- * 
- * @param None
- * 
- * @return: None
- */
 u8 W25Q64_EraseChip(void)
 {
-    if(0 == W25Qx_Erase_Chip())
-    {
-        s_ast_W25Q_Handler[0].read_index = 0;
-        s_ast_W25Q_Handler[0].read_sector_index = 0;
-        s_ast_W25Q_Handler[0].write_databuf_index = 0;
-        s_ast_W25Q_Handler[0].write_index = 0;
-        s_ast_W25Q_Handler[0].write_sector_index = 0;
-    
-        s_ast_W25Q_Handler[1].read_index = 0;
-        s_ast_W25Q_Handler[1].read_sector_index = 0;
-        s_ast_W25Q_Handler[1].write_databuf_index = 0;
-        s_ast_W25Q_Handler[1].write_index = 0;
-        s_ast_W25Q_Handler[1].write_sector_index = 0;
-        return 0;
-    }
-    return 1;
+    memset(s_ast_W25Q_Handler, 0, sizeof(s_ast_W25Q_Handler));
+    return 0;
 }
 
-/**
- * @brief w25q芯片擦除
- * 
- * @param None
- * 
- * @return: None
- */
 u8 W25Q64_WriteData(u8 block_index, u8 *data, u32 length)
 {
-    u32 addr = 0;
-    u16 index = 0;
-    for(u16 i = 0; i < length; i++)
+    const uint32_t    subsector_size = W25QXXXX_SUBSECTOR_SIZE;
+    const sfud_flash *flash          = W25Q64_GetReadyFlash();
+    u16               index          = 0;
+
+    if ((flash == NULL) || (data == NULL) || (length == 0U))
     {
-        //1.数据写入数据缓冲区里面
+        return 1;
+    }
+
+    for (u32 i = 0; i < length; i++)
+    {
         index = s_ast_W25Q_Handler[block_index].write_databuf_index;
         s_ast_W25Q_Handler[block_index].databuf[index] = *(data + i);
         s_ast_W25Q_Handler[block_index].write_databuf_index++;
-        //2.判断数据有没有写满4096
-        if(s_ast_W25Q_Handler[block_index].write_databuf_index == W25Qx_Para.SUBSECTOR_SIZE)
+
+        if (s_ast_W25Q_Handler[block_index].write_databuf_index ==
+            subsector_size)
         {
-            s_ast_W25Q_Handler[block_index].write_databuf_index = 0;
-            //擦除1个sector
-            addr = W25Qx_Para.SUBSECTOR_SIZE * s_ast_W25Q_Handler[block_index].write_sector_index;
-            addr += block_index * BLOCK_SIZE;
-            W25Qx_Erase_Block(addr);
-            W25Qx_WriteEnable();
-            //写满了一个sector，执行写入操作   4096个byte
-            for(u8 j = 0; j < 16; j++)
+            uint32_t write_addr =
+                (s_ast_W25Q_Handler[block_index].write_sector_index *
+                 subsector_size) +
+                (block_index * BLOCK_SIZE);
+
+            if (SFUD_SUCCESS !=
+                sfud_erase_write(flash, write_addr, subsector_size,
+                                 s_ast_W25Q_Handler[block_index].databuf))
             {
-                //获取当前写入地址
-                addr = (W25Qx_Para.SUBSECTOR_SIZE * s_ast_W25Q_Handler[block_index].write_sector_index) + \
-                        (W25Qx_Para.PAGE_SIZE * j);
-                addr += block_index * BLOCK_SIZE;
-                //执行写入操作
-                index = W25Qx_Para.PAGE_SIZE * j;
-                W25Qx_Write(&s_ast_W25Q_Handler[block_index].databuf[index],addr,W25Qx_Para.PAGE_SIZE);
+                return 1;
             }
+
+            s_ast_W25Q_Handler[block_index].write_databuf_index = 0;
             s_ast_W25Q_Handler[block_index].write_sector_index++;
-            //记录总的写入数据长度
-            s_ast_W25Q_Handler[block_index].write_index += W25Qx_Para.SUBSECTOR_SIZE;
+            s_ast_W25Q_Handler[block_index].write_index += subsector_size;
         }
     }
+
     return 0;
 }
 
 u8 W25Q64_WriteData_End(u8 block_index)
 {
-    u32 addr = 0;
-    u16 index = 0;
-    u8  page_size = 0;
-    //判断还有没有剩余数据没有执行写入
-    if(0 != s_ast_W25Q_Handler[block_index].write_databuf_index)
-    {
-        //写入次数
-        page_size = s_ast_W25Q_Handler[block_index].write_databuf_index / W25Qx_Para.PAGE_SIZE;
-        //先执行擦除扇区
-        addr = W25Qx_Para.SUBSECTOR_SIZE * s_ast_W25Q_Handler[block_index].write_sector_index;
-        addr += block_index * BLOCK_SIZE;
-        W25Qx_Erase_Block(addr);
-        W25Qx_WriteEnable();
-        for(u8 j = 0; j < page_size; j++)
-        {
-            //获取当前写入地址
-            addr = (W25Qx_Para.SUBSECTOR_SIZE * s_ast_W25Q_Handler[block_index].write_sector_index) + \
-                    (W25Qx_Para.PAGE_SIZE * j);
-            addr += block_index * BLOCK_SIZE;
-            //执行写入操作
-            index = W25Qx_Para.PAGE_SIZE * j;
-            W25Qx_Write(&s_ast_W25Q_Handler[block_index].databuf[index],addr,W25Qx_Para.PAGE_SIZE);
-        }
+    const sfud_flash *flash = W25Q64_GetReadyFlash();
 
-        //有没有小于256的数据了
-        if(0 != (s_ast_W25Q_Handler[block_index].write_databuf_index % W25Qx_Para.PAGE_SIZE))
-        {
-            //获取当前写入地址
-            addr = (W25Qx_Para.SUBSECTOR_SIZE * s_ast_W25Q_Handler[block_index].write_sector_index) + \
-                    (W25Qx_Para.PAGE_SIZE * page_size);
-            addr += block_index * BLOCK_SIZE;
-            //执行写入操作
-            index = W25Qx_Para.PAGE_SIZE * page_size;
-            W25Qx_Write(&s_ast_W25Q_Handler[block_index].databuf[index],addr, \
-                        s_ast_W25Q_Handler[block_index].write_databuf_index % W25Qx_Para.PAGE_SIZE);
-        }
-        s_ast_W25Q_Handler[block_index].write_index += s_ast_W25Q_Handler[block_index].write_databuf_index;
-    }
-    return 0;
-}
-
-/*每次读取一个扇区的数据，外部接口需要一个4096的buffer
-length:每次读取出来的长度，从缓冲区读取
-return : 
-        0:表示读取成功
-        1:读取完毕  没有数据了
-        2:读取失败  读取错误
-*/
-u8 W25Q64_ReadData(u8 block_index, u8 *data, u16 *length)
-{
-    u32 addr = 0;
-
-    //1.先判断是否读取完毕
-    if(s_ast_W25Q_Handler[block_index].write_index > s_ast_W25Q_Handler[block_index].read_index)
-    {
-        //判断下数据是否够4K
-        if(s_ast_W25Q_Handler[block_index].write_sector_index > s_ast_W25Q_Handler[block_index].read_sector_index)
-        {
-            //读4K数据的操作
-            *length = W25Qx_Para.SUBSECTOR_SIZE;
-            addr = s_ast_W25Q_Handler[block_index].read_sector_index * W25Qx_Para.SUBSECTOR_SIZE;
-            addr += block_index * BLOCK_SIZE;
-            if(0 != W25Qx_Read(data,addr,*length))
-                return 2;
-            s_ast_W25Q_Handler[block_index].read_sector_index++;
-        }
-        else
-        {
-            //读4K以内的数据
-            *length = s_ast_W25Q_Handler[block_index].write_index - s_ast_W25Q_Handler[block_index].read_index;
-            addr = s_ast_W25Q_Handler[block_index].read_sector_index * W25Qx_Para.SUBSECTOR_SIZE;
-            addr += block_index * BLOCK_SIZE;
-            if(0 != W25Qx_Read(data,addr,*length))
-                return 2;
-        }
-        s_ast_W25Q_Handler[block_index].read_index += *length;
-        return 0;
-    }
-    else
+    if (flash == NULL)
     {
         return 1;
     }
+
+    if (0 != s_ast_W25Q_Handler[block_index].write_databuf_index)
+    {
+        uint32_t write_addr =
+            (s_ast_W25Q_Handler[block_index].write_sector_index *
+             W25QXXXX_SUBSECTOR_SIZE) +
+            (block_index * BLOCK_SIZE);
+
+        if (SFUD_SUCCESS !=
+            sfud_erase_write(
+                flash, write_addr,
+                s_ast_W25Q_Handler[block_index].write_databuf_index,
+                s_ast_W25Q_Handler[block_index].databuf))
+        {
+            return 1;
+        }
+
+        s_ast_W25Q_Handler[block_index].write_index +=
+            s_ast_W25Q_Handler[block_index].write_databuf_index;
+        s_ast_W25Q_Handler[block_index].write_databuf_index = 0;
+        s_ast_W25Q_Handler[block_index].write_sector_index =
+            (u8)(s_ast_W25Q_Handler[block_index].write_index /
+                 W25QXXXX_SUBSECTOR_SIZE);
+    }
+
+    return 0;
+}
+
+/*
+ * Read one chunk each call, max 4096 bytes.
+ * return:
+ *   0: read success
+ *   1: no more data
+ *   2: read fail
+ */
+u8 W25Q64_ReadData(u8 block_index, u8 *data, u16 *length)
+{
+    const uint32_t    subsector_size = W25QXXXX_SUBSECTOR_SIZE;
+    const sfud_flash *flash          = W25Q64_GetReadyFlash();
+    uint32_t          remain         = 0;
+    uint32_t          read_addr      = 0;
+
+    if ((flash == NULL) || (data == NULL) || (length == NULL))
+    {
+        return 2;
+    }
+
+    if (s_ast_W25Q_Handler[block_index].write_index >
+        s_ast_W25Q_Handler[block_index].read_index)
+    {
+        remain = s_ast_W25Q_Handler[block_index].write_index -
+                 s_ast_W25Q_Handler[block_index].read_index;
+
+        if (remain > subsector_size)
+        {
+            *length = (u16)subsector_size;
+        }
+        else
+        {
+            *length = (u16)remain;
+        }
+
+        read_addr = (block_index * BLOCK_SIZE) +
+                    s_ast_W25Q_Handler[block_index].read_index;
+
+        if (SFUD_SUCCESS != sfud_read(flash, read_addr, *length, data))
+        {
+            return 2;
+        }
+
+        s_ast_W25Q_Handler[block_index].read_index += *length;
+        s_ast_W25Q_Handler[block_index].read_sector_index =
+            (u8)(s_ast_W25Q_Handler[block_index].read_index / subsector_size);
+        return 0;
+    }
+
+    return 1;
 }

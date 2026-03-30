@@ -195,6 +195,8 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         // }
         // elog_info("FileInfo", "Flash erase success");
 
+        Erase_Flash_Block(BLOCK_1);
+
         Send_Byte(ACK);
         Send_Byte(CRC16);
         DEBUG_OUT(d, "FileInfo", "Transition to FILE_DATA state");
@@ -233,7 +235,15 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
         // Program data to Flash in 32-bit words
         uint8_t *src_ptr = ctx->packet_data + PACKET_HEADER;
 
-        W25Q64_WriteData(BLOCK_1, src_ptr, bytes_to_copy);
+        if (W25Q64_WriteData(BLOCK_1, src_ptr, bytes_to_copy) != 0)
+        {
+            DEBUG_OUT(e, "FileData",
+                      "External flash write failed at offset=%d, len=%d",
+                      ctx->bytes_received, bytes_to_copy);
+            Send_Byte(CA);
+            Send_Byte(CA);
+            return (int32_t)YMODEM_RX_HANDLER_ERROR;
+        }
 
         // uint32_t flash_addr = FlashDestination;
 
@@ -458,7 +468,11 @@ int32_t Ymodem_Receive(uint8_t *buf)
     DEBUG_OUT(i, "Result", "Total bytes received: %d", ctx.bytes_received);
 
     /* Complete the last incomplete block in external flash */
-    W25Q64_WriteData_End(BLOCK_1);
+    if (W25Q64_WriteData_End(BLOCK_1) != 0)
+    {
+        DEBUG_OUT(e, "Result", "Finalize external flash write failed");
+        return (int32_t)YMODEM_RX_FLASH_ERR;
+    }
 
     return (int32_t)ctx.bytes_received; /* Return actual bytes received */
 }

@@ -301,6 +301,9 @@ int8_t exA_to_exB_AES(int32_t fl_size)
         return -1;
     }
 
+    /* Rebuild BLOCK_1 read/write context in case RAM state was reset. */
+    SetBlockParmeter(BLOCK_1, (uint32_t)fl_size);
+
     ota_watchdog_feed();
 
     memcpy(iv_work, s_iv_default, sizeof(iv_work));
@@ -462,6 +465,14 @@ void OTA_StateManager(void)
         if (key_scan())
         {
             file_size = Ymodem_Receive(tab_1024);
+
+            if (file_size <= 0)
+            {
+                DEBUG_OUT(e, "", "OTA download failed, file_size=%ld",
+                          (long)file_size);
+                break;
+            }
+
             ota_apply_update(file_size, true);
         }
         else
@@ -480,8 +491,14 @@ void OTA_StateManager(void)
         if (key_scan())
         {
             file_size = Ymodem_Receive(tab_1024);
-            ota_state = EE_OTA_APP_CHECK_START;
-            ee_WriteBytes(&ota_state, 0x00, 1);
+
+            if (file_size <= 0)
+            {
+                DEBUG_OUT(e, "", "OTA download failed, file_size=%ld",
+                          (long)file_size);
+                jump_to_app();
+                break;
+            }
 
             ota_apply_update(file_size, false);
         }
