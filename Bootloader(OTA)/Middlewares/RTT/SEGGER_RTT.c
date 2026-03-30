@@ -78,6 +78,14 @@ Additional information:
 
 #include <string.h> // for memcpy
 
+#ifndef SEGGER_RTT_SECTION
+#define SEGGER_RTT_SECTION "RTT_CB"
+#endif
+
+#ifndef SEGGER_RTT_BUFFER_SECTION
+#define SEGGER_RTT_BUFFER_SECTION "RTT_BUFFER"
+#endif
+
 /*********************************************************************
  *
  *       Configuration, default values
@@ -268,31 +276,10 @@ static unsigned char _aTerminalId[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
 //
 // RTT Control Block and allocate buffers for channel 0
 //
-#if defined(__CC_ARM)
-// Keep RTT data at fixed addresses so Bootloader and APP share one control block.
-// STM32F411CE SRAM range: 0x20000000 - 0x2001FFFF.
-#ifndef SEGGER_RTT_CB_ADDRESS
-#define SEGGER_RTT_CB_ADDRESS (0x2001E000u)
-#endif
-
-#ifndef SEGGER_RTT_UP_BUFFER_ADDRESS
-#define SEGGER_RTT_UP_BUFFER_ADDRESS (0x2001E100u)
-#endif
-
-#ifndef SEGGER_RTT_DOWN_BUFFER_ADDRESS
-#define SEGGER_RTT_DOWN_BUFFER_ADDRESS (0x2001F100u)
-#endif
-
-SEGGER_RTT_CB_ALIGN(SEGGER_RTT_CB _SEGGER_RTT) __attribute__((at(SEGGER_RTT_CB_ADDRESS), zero_init));
-SEGGER_RTT_BUFFER_ALIGN(static char _acUpBuffer[SEGGER_RTT__ROUND_UP_2_CACHE_LINE_SIZE(BUFFER_SIZE_UP)])
-    __attribute__((at(SEGGER_RTT_UP_BUFFER_ADDRESS), zero_init));
-SEGGER_RTT_BUFFER_ALIGN(static char _acDownBuffer[SEGGER_RTT__ROUND_UP_2_CACHE_LINE_SIZE(BUFFER_SIZE_DOWN)])
-    __attribute__((at(SEGGER_RTT_DOWN_BUFFER_ADDRESS), zero_init));
-#else
+// Fixed addresses are controlled in scatter file via RTT_CB / RTT_BUFFER sections.
 SEGGER_RTT_PUT_CB_SECTION(SEGGER_RTT_CB_ALIGN(SEGGER_RTT_CB _SEGGER_RTT));
 SEGGER_RTT_PUT_BUFFER_SECTION(SEGGER_RTT_BUFFER_ALIGN(static char _acUpBuffer[SEGGER_RTT__ROUND_UP_2_CACHE_LINE_SIZE(BUFFER_SIZE_UP)]));
 SEGGER_RTT_PUT_BUFFER_SECTION(SEGGER_RTT_BUFFER_ALIGN(static char _acDownBuffer[SEGGER_RTT__ROUND_UP_2_CACHE_LINE_SIZE(BUFFER_SIZE_DOWN)]));
-#endif
 
 static unsigned char _ActiveTerminal;
 

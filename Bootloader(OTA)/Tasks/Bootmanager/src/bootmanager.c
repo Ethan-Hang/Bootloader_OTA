@@ -80,44 +80,53 @@ static int8_t ex_block_to_app(uint8_t block_index, const char *tag)
     }
 }
 
-void ota_apply_update(int32_t file_size)
+void ota_apply_update(int32_t file_size, bool first_boot)
 {
     uint32_t current_app_size = 0;
 
     if (exA_to_exB_AES(file_size) != 0)
     {
         DEBUG_OUT(e, "", "ota_apply_update: exA_to_exB_AES failed");
+        if (!first_boot)
+        {
+            jump_to_app();
+        }
+        return;
+    }
+
+    if (!first_boot)
+    {
+        if (ee_ReadBytes((uint8_t *)&current_app_size, 0x01, 4) == 0)
+        {
+            DEBUG_OUT(e, "", "ota_apply_update: read current app size failed");
+            jump_to_app();
+            return;
+        }
+        DEBUG_OUT(d, "", "Current app size read from EEPROM: %lu bytes",
+                  (unsigned long)current_app_size);
+    
+        if (app_to_exA(current_app_size) != 0)
+        {
+            DEBUG_OUT(w, "", "ota_apply_update: backup current app failed");
+        }
+    }
+    
+        if (exB_to_app() != 0)
+        {
+            DEBUG_OUT(e, "", "ota_apply_update: apply new app failed");
+            jump_to_app();
+            return;
+        }
+    
         jump_to_app();
-        return;
-    }
-
-    if (ee_ReadBytes((uint8_t *)&current_app_size, 0x01, 4) == 0)
+    
+    if (!first_boot)
     {
-        DEBUG_OUT(e, "", "ota_apply_update: read current app size failed");
-        jump_to_app();
-        return;
-    }
-    DEBUG_OUT(d, "", "Current app size read from EEPROM: %lu bytes",
-              (unsigned long)current_app_size);
-
-    if (app_to_exA(current_app_size) != 0)
-    {
-        DEBUG_OUT(w, "", "ota_apply_update: backup current app failed");
-    }
-
-    if (exB_to_app() != 0)
-    {
-        DEBUG_OUT(e, "", "ota_apply_update: apply new app failed");
-        jump_to_app();
-        return;
-    }
-
-    jump_to_app();
-
-    if (exA_to_app() != 0)
-    {
-        DEBUG_OUT(e, "", "ota_apply_update: rollback copy failed");
-        return;
+        if (exA_to_app() != 0)
+        {
+            DEBUG_OUT(e, "", "ota_apply_update: rollback copy failed");
+            return;
+        }
     }
 
     jump_to_app();
@@ -344,7 +353,7 @@ void OTA_StateManager(void)
         if (key_scan())
         {
             file_size = Ymodem_Receive(tab_1024);
-            ota_apply_update(file_size);
+            ota_apply_update(file_size, true);
         }
         else
         {
@@ -360,7 +369,7 @@ void OTA_StateManager(void)
         if (key_scan())
         {
             file_size = Ymodem_Receive(tab_1024);
-            ota_apply_update(file_size);
+            ota_apply_update(file_size, false);
         }
         else
         {
@@ -373,7 +382,7 @@ void OTA_StateManager(void)
         jump_to_app();
 
         file_size = Ymodem_Receive(tab_1024);
-        ota_apply_update(file_size);
+        ota_apply_update(file_size, false);
         break;
 
     case EE_OTA_DOWNLOAD_FINISHED:
@@ -392,7 +401,7 @@ void OTA_StateManager(void)
         }
 
         SetBlockParmeter(BLOCK_1, app_size);
-        ota_apply_update((int32_t)app_size);
+        ota_apply_update((int32_t)app_size, false);
         break;        
 
     default:

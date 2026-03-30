@@ -3,6 +3,7 @@
 #define __BOOT_MANAGER_H
 
 /* Includes ------------------------------------------------------------------*/
+#include <stdbool.h>
 #include "flash.h"
 #include "aes.h"
 
@@ -27,7 +28,8 @@ int8_t exB_to_app(void);
 int8_t app_to_exA(uint32_t fl_size);
 int8_t exA_to_app(void);
 void   OTA_StateManager(void);
-void   ota_apply_update(int32_t file_size);
+void ota_apply_update(int32_t file_size, bool first_boot);
+
 
 #define EE_OTA_EMPTY             0x00
 #define EE_OTA_DOWNLOADING       0x11
