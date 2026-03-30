@@ -14,6 +14,7 @@
 
 extern uint8_t       tab_1024[1024];
 extern uint8_t       key_scan(void);
+extern uint32_t      g_jumpinit;
 
 static const uint8_t s_iv_default[16] = {0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
                                          0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
@@ -486,7 +487,9 @@ void OTA_StateManager(void)
         }
         else
         {
-            jump_to_app();
+            // Set flag for main to jump to app
+            g_jumpinit = 0x55AA55AA;
+            soft_reset();
         }
         break;
 

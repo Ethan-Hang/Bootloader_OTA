@@ -26,11 +26,15 @@ typedef void (*pFunction)(void);
 static __IO uint32_t uwTimingDelay;
 RCC_ClocksTypeDef    RCC_Clocks;
 uint8_t              tab_1024[1024];
+
+/* Keep jump flag across soft reset by placing it in UNINIT memory. */
+uint32_t             g_jumpinit __attribute__((section("NO_INIT"), zero_init));
+
 /* Note: g_buf is no longer needed - OTA now writes directly to Flash */
 /* Private function prototypes -----------------------------------------------*/
 
 
-uint8_t key_scan(void)
+uint8_t              key_scan(void)
 {
     if (Bit_RESET == GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0))
     {
@@ -51,6 +55,13 @@ uint8_t key_scan(void)
  */
 int main(void)
 {
+    if (0x55AA55AA == g_jumpinit)
+    {
+        g_jumpinit = 0xFFFFFFFF;
+        jump_to_app();
+    }
+
+
     SCB->VTOR = 0x08000000 | 0x00000000;
     /* Enable Clock Security System(CSS): this will generate an NMI exception
      when HSE clock fails *****************************************************/
@@ -89,8 +100,7 @@ int main(void)
     uint8_t ee_read_ota_status = 0;
     ee_ReadBytes(&ee_read_ota_status, 0x00, 1);
     uint32_t ee_read_ota_size = 0;
-    ee_ReadBytes((uint8_t *)&ee_read_ota_size, 0x05,
-                 sizeof(ee_read_ota_size));
+    ee_ReadBytes((uint8_t *)&ee_read_ota_size, 0x05, sizeof(ee_read_ota_size));
     DEBUG_OUT(d, "EEPROM", "OTA state: %d, App size: %lu bytes",
               ee_read_ota_status, (unsigned long)ee_read_ota_size);
 
