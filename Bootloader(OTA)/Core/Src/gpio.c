@@ -5,8 +5,9 @@
   ******************************************************************************
   */
 
-#include "gpio.h"
 #include <string.h>
+
+#include "gpio.h"
 
 void GPIO_Config(void)
 {

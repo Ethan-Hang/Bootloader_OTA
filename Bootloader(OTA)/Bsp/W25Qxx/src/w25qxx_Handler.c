@@ -18,13 +18,15 @@
  *
  *****************************************************************************/
 /* Includes ------------------------------------------------------------------*/
-#include "w25qxx_Handler.h"
-#include "../../../Middlewares/SFUD/inc/sfud.h"
-#include "w25qxx.h"
 #include <string.h>
 
+#include "w25qxx_Handler.h"
+#include "w25qxx.h"
+
+#include "../../../Middlewares/SFUD/inc/sfud.h"
+
 /* Private variables ---------------------------------------------------------*/
-static st_W25Q_Handler   s_ast_W25Q_Handler[2];
+static st_W25Q_Handler s_ast_W25Q_Handler[2];
 
 static const sfud_flash *W25Q64_GetReadyFlash(void)
 {

@@ -25,7 +25,6 @@
 #ifndef __W25Q_HANDLER_H
 #define __W25Q_HANDLER_H
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
 #include "stm32f4xx.h"
 
 /* Exported types ------------------------------------------------------------*/

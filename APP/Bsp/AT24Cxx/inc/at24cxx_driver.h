@@ -1,7 +1,7 @@
 #ifndef __ATC24CXX_DRIVER_H
 #define __ATC24CXX_DRIVER_H
 
-#include "main.h"
+#include <stdint.h>
 
 /*
  * AT24C02 2kb = 2048bit = 2048/8 B = 256 B

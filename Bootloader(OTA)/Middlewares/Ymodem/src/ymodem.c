@@ -24,13 +24,15 @@
  */
 
 /* Includes ------------------------------------------------------------------*/
-#include "common.h"
 #include "stm32f4xx_flash.h"
-#include "elog.h"
-#include "../../../Debug/inc/Debug.h"
+
 #include "flash.h"
+
+#include "common.h"
 #include "bootmanager.h"
 #include "w25qxx_Handler.h"
+
+#include "Debug.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -168,13 +170,13 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
         Str2Int(ctx->file_size, &ctx->size);
 
         /* Debug: Print received file size */
-        DEBUG_OUT(d, "FileInfo", "File size: %d bytes", ctx->size);
+        DEBUG_OUT(d, YMODEM_FILE_INFO_LOG_TAG, "File size: %d bytes", ctx->size);
 
         /* Test the size of the image to be sent */
         /* Image size is greater than Flash size */
         if (ctx->size > (INTER_FLASH_SIZE - 1))
         {
-            DEBUG_OUT(e, "FileInfo", "File size exceeds Flash!");
+            DEBUG_OUT(e, YMODEM_FILE_INFO_LOG_TAG, "File size exceeds Flash!");
             /* End session */
             Send_Byte(CA);
             Send_Byte(CA);
@@ -199,7 +201,7 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
 
         Send_Byte(ACK);
         Send_Byte(CRC16);
-        DEBUG_OUT(d, "FileInfo", "Transition to FILE_DATA state");
+        DEBUG_OUT(d, YMODEM_FILE_INFO_LOG_TAG, "Transition to FILE_DATA state");
         ctx->bytes_received = 0; /* Reset byte counter for new file */
         ctx->state          = YMODEM_RX_STATE_FILE_DATA;
         return (int32_t)YMODEM_RX_HANDLER_CONTINUE;
@@ -208,7 +210,7 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
     else
     {
         Send_Byte(ACK);
-        DEBUG_OUT(i, "Ymodem", "Session complete, file transfer successful");
+        DEBUG_OUT(i, YMODEM_LOG_TAG, "Session complete, file transfer successful");
         ctx->file_done    = 1;
         ctx->session_done = 1;
         return (int32_t)YMODEM_RX_HANDLER_DONE;
@@ -237,7 +239,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
 
         if (W25Q64_WriteData(BLOCK_1, src_ptr, bytes_to_copy) != 0)
         {
-            DEBUG_OUT(e, "FileData",
+            DEBUG_OUT(e, YMODEM_FILE_DATA_LOG_TAG,
                       "External flash write failed at offset=%d, len=%d",
                       ctx->bytes_received, bytes_to_copy);
             Send_Byte(CA);
@@ -295,7 +297,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
 
         // Calculate and display progress (integer math, no float)
         uint32_t progress_percent = (ctx->bytes_received * 100) / ctx->size;
-        DEBUG_OUT(i, "FileData", "Progress: %d/%d bytes (%d%%)",
+        DEBUG_OUT(i, YMODEM_FILE_DATA_LOG_TAG, "Progress: %d/%d bytes (%d%%)",
                   ctx->bytes_received, ctx->size, progress_percent);
     }
 
@@ -338,7 +340,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
     /* Initialize FlashDestination variable */
     FlashDestination     = BackAppAddress;
 
-    DEBUG_OUT(i, "Ymodem", "Starting reception... (buf @0x%08x)",
+    DEBUG_OUT(i, YMODEM_LOG_TAG, "Starting reception... (buf @0x%08x)",
               (uint32_t)buf);
 
     while (1)
@@ -368,7 +370,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
                          * packet */
                         ctx.state     = YMODEM_RX_STATE_FILE_INFO;
                         ctx.file_done = 1;
-                        DEBUG_OUT(d, "Ymodem",
+                        DEBUG_OUT(d, YMODEM_LOG_TAG,
                                   "EOT received, waiting for EOF packet...");
                     }
                     else if (ctx.state == YMODEM_RX_STATE_FILE_INFO)
@@ -376,7 +378,7 @@ int32_t Ymodem_Receive(uint8_t *buf)
                         /* Second EOT or EOF packet received, end session */
                         ctx.file_done    = 1;
                         ctx.session_done = 1;
-                        DEBUG_OUT(i, "Ymodem",
+                        DEBUG_OUT(i, YMODEM_LOG_TAG,
                                   "Session complete, file transfer successful");
                     }
                     break;
@@ -388,12 +390,12 @@ int32_t Ymodem_Receive(uint8_t *buf)
                     uint8_t exp_seqno = ctx.packets_received & 0xff;
 
                     /* Debug: Print sequence number */
-                    DEBUG_OUT(d, "Packet", "Seqno: %d Expected: %d", pkt_seqno,
+                    DEBUG_OUT(d, YMODEM_PACKET_LOG_TAG, "Seqno: %d Expected: %d", pkt_seqno,
                               exp_seqno);
 
                     if (pkt_seqno != exp_seqno)
                     {
-                        DEBUG_OUT(w, "Packet",
+                        DEBUG_OUT(w, YMODEM_PACKET_LOG_TAG,
                                   "Sequence mismatch, sending NAK");
                         Send_Byte(NAK);
                     }
@@ -429,12 +431,12 @@ int32_t Ymodem_Receive(uint8_t *buf)
                 if (ctx.session_begin > 0)
                 {
                     ctx.errors++;
-                    DEBUG_OUT(w, "Error", "Timeout/Error, count: %d/%d",
+                    DEBUG_OUT(w, YMODEM_ERROR_LOG_TAG, "Timeout/Error, count: %d/%d",
                               ctx.errors, MAX_ERRORS);
                 }
                 if (ctx.errors > MAX_ERRORS)
                 {
-                    DEBUG_OUT(e, "Error", "Max errors exceeded!");
+                    DEBUG_OUT(e, YMODEM_ERROR_LOG_TAG, "Max errors exceeded!");
                     Send_Byte(CA);
                     Send_Byte(CA);
                     return (int32_t)YMODEM_RX_TIMEOUT_ERR;
@@ -460,17 +462,17 @@ int32_t Ymodem_Receive(uint8_t *buf)
             Send_Byte(CRC16);  /* Request next packet */
             ctx.file_done = 0; /* Reset to allow new file processing */
             ctx.errors    = 0; /* Reset error count for new packet reception */
-            DEBUG_OUT(d, "Ymodem", "Requesting next packet with CRC16...");
+            DEBUG_OUT(d, YMODEM_LOG_TAG, "Requesting next packet with CRC16...");
         }
     }
 
     /* Debug: Final result */
-    DEBUG_OUT(i, "Result", "Total bytes received: %d", ctx.bytes_received);
+    DEBUG_OUT(i, YMODEM_RESULT_LOG_TAG, "Total bytes received: %d", ctx.bytes_received);
 
     /* Complete the last incomplete block in external flash */
     if (W25Q64_WriteData_End(BLOCK_1) != 0)
     {
-        DEBUG_OUT(e, "Result", "Finalize external flash write failed");
+        DEBUG_OUT(e, YMODEM_RESULT_LOG_TAG, "Finalize external flash write failed");
         return (int32_t)YMODEM_RX_FLASH_ERR;
     }
 
@@ -637,3 +639,4 @@ void Ymodem_SendPacket(uint8_t *data, uint16_t length)
 }
 
 /*******************(C)COPYRIGHT 2010 STMicroelectronics *****END OF FILE****/
+

@@ -7,9 +7,8 @@
 #endif 
 
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
-//#include "cmsis_os.h"
 #include "spi.h"
+//#include "cmsis_os.h"
 	 
 /** @addtogroup BSP
   * @{

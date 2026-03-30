@@ -13,7 +13,6 @@
 #endif 
 
 #include "stm32f4xx.h"
-#include "main.h"
 
 void GPIO_Config(void);
 

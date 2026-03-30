@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F411xE</Define>
               <Undefine></Undefine>
-              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc;..\Middlewares\AES\inc;..\Bsp\W25Qxx\inc;..\Bsp\AT24Cxx\inc;..\Middlewares\SFUD\inc;..\Middlewares\SFUD</IncludePath>
+              <IncludePath>..\MDK-ARM;..\Core\Inc;..\Drivers\STM32F4xx_StdPeriph_Driver\inc;..\Drivers\CMSIS\Device\ST\STM32F4xx\Include;..\Drivers\CMSIS\Include;..\Middlewares\RTT;..\Middlewares\EasyLogger\inc;..\Middlewares\Ymodem\inc;..\Tasks\Bootmanager\inc;..\Middlewares\AES\inc;..\Bsp\W25Qxx\inc;..\Bsp\AT24Cxx\inc;..\Middlewares\SFUD\inc;..\Middlewares\SFUD;..\Debug\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>

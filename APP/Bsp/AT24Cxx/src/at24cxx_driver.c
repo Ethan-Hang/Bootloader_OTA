@@ -1,5 +1,5 @@
-#include "at24cxx_driver.h"
 #include "iic.h"
+#include "at24cxx_driver.h"
 #include "Debug.h"
 /*
 *********************************************************************************************************
@@ -208,12 +208,12 @@ void ee_Erase(void)
     /* 写EEPROM, 起始地址 = 0，数据长度为 256 */
     if (ee_WriteBytes(buf, 0, EEPROM_SIZE) == 0)
     {
-        DEBUG_OUT(e, "AT24Cxx", "EEPROM erase failed");
+        DEBUG_OUT(e, AT24CXX_LOG_TAG, "EEPROM erase failed");
         return;
     }
     else
     {
-        DEBUG_OUT(i, "AT24Cxx", "EEPROM erase success");
+        DEBUG_OUT(i, AT24CXX_LOG_TAG, "EEPROM erase success");
     }
 }
 /*--------------------------------------------------------------------------------------------------*/
@@ -236,7 +236,7 @@ uint8_t ee_Test(void)
     if (ee_CheckOk() == 0)
     {
         /* 没有检测到EEPROM */
-        DEBUG_OUT(e, "AT24Cxx", "No serial EEPROM detected");
+        DEBUG_OUT(e, AT24CXX_LOG_TAG, "No serial EEPROM detected");
         return 0;
     }
     /*------------------------------------------------------------------------------------*/
@@ -248,41 +248,43 @@ uint8_t ee_Test(void)
     /*------------------------------------------------------------------------------------*/
     if (ee_WriteBytes(write_buf, 0, EEPROM_SIZE) == 0)
     {
-        DEBUG_OUT(e, "AT24Cxx", "EEPROM write failed");
+        DEBUG_OUT(e, AT24CXX_LOG_TAG, "EEPROM write failed");
         return 0;
     }
     else
     {
-        DEBUG_OUT(i, "AT24Cxx", "EEPROM write success");
+        DEBUG_OUT(i, AT24CXX_LOG_TAG, "EEPROM write success");
     }
     /*写完之后需要适当的延时再去读，不然会出错*/
     ee_Delay(0x0FFFFF);
     /*-----------------------------------------------------------------------------------*/
     if (ee_ReadBytes(read_buf, 0, EEPROM_SIZE) == 0)
     {
-        DEBUG_OUT(e, "AT24Cxx", "EEPROM read failed");
+        DEBUG_OUT(e, AT24CXX_LOG_TAG, "EEPROM read failed");
 
         return 0;
     }
     else
     {
-        DEBUG_OUT(i, "AT24Cxx", "EEPROM read success, dump follows");
+        DEBUG_OUT(i, AT24CXX_LOG_TAG, "EEPROM read success, dump follows");
     }
     /*-----------------------------------------------------------------------------------*/
     for (i = 0; i < EEPROM_SIZE; i++)
     {
         if (read_buf[i] != write_buf[i])
         {
-            // DEBUG_OUT(d, "AT24Cxx", "0x%02X", read_buf[i]);
-            // DEBUG_OUT(e, "AT24Cxx", "EEPROM read/write mismatch");
+            // DEBUG_OUT(d, AT24CXX_LOG_TAG, "0x%02X", read_buf[i]);
+            // DEBUG_OUT(e, AT24CXX_LOG_TAG, "EEPROM read/write mismatch");
             return 0;
         }
-        DEBUG_OUT(d, "AT24Cxx", "read_buf[%03d] = 0x%02X", i, read_buf[i]);
+        DEBUG_OUT(d, AT24CXX_LOG_TAG, "read_buf[%03d] = 0x%02X", i,
+                  read_buf[i]);
         if ((i & 15) == 15)
         {
-            DEBUG_OUT(d, "AT24Cxx", "read[%03d..%03d] processed", i - 15, i);
+            DEBUG_OUT(d, AT24CXX_LOG_TAG, "read[%03d..%03d] processed", i - 15,
+                      i);
         }
     }
-    DEBUG_OUT(i, "AT24Cxx", "EEPROM read/write test success");
+    DEBUG_OUT(i, AT24CXX_LOG_TAG, "EEPROM read/write test success");
     return 1;
 }

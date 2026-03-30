@@ -22,7 +22,7 @@ static uint16_t          s_u16_YmodRecLength;
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
-static void Int2Str(uint8_t *str, int32_t intnum)
+static void              Int2Str(uint8_t *str, int32_t intnum)
 {
     uint32_t i, Div = 1000000000, j = 0, Status = 0;
 
@@ -137,11 +137,11 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
 static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
 {
     HAL_StatusTypeDef hal_ret;
-    BaseType_t retval = pdFALSE;
+    BaseType_t        retval = pdFALSE;
 
     /* Make sure UART RX DMA is in IDLE mode so RxEvent callback can report
      * actual frame length. */
-    hal_ret = HAL_UARTEx_ReceiveToIdle_DMA(&huart1, c, length);
+    hal_ret                  = HAL_UARTEx_ReceiveToIdle_DMA(&huart1, c, length);
     if (hal_ret != HAL_OK)
     {
         HAL_UART_DMAStop(&huart1);
@@ -153,7 +153,7 @@ static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
     }
 
     retval = xQueueReceive(Q_YmodemReclength, &s_u16_YmodRecLength,
-                                             pdMS_TO_TICKS(timeout));
+                           pdMS_TO_TICKS(timeout));
     if (pdFALSE == retval)
     {
         return YMODEM_PKT_TIMEOUT; /* Timeout */
@@ -178,14 +178,15 @@ static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
 {
     if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
     {
-        DEBUG_OUT(e, "Ymodem", "Failed to send file data to queue");
+        DEBUG_OUT(e, YMODEM_LOG_TAG, "Failed to send file data to queue");
         return;
     }
 
     /* Wait until download task consumes the FILE_INFO message. */
     if (xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY) != pdTRUE)
     {
-        DEBUG_OUT(e, "Ymodem", "Failed to sync file info with download task");
+        DEBUG_OUT(e, YMODEM_LOG_TAG,
+                  "Failed to sync file info with download task");
         return;
     }
 
@@ -203,7 +204,7 @@ static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
 {
     if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
     {
-        DEBUG_OUT(e, "Ymodem", "Failed to send file info to queue");
+        DEBUG_OUT(e, YMODEM_LOG_TAG, "Failed to send file info to queue");
         return;
     }
 
@@ -211,7 +212,8 @@ static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
      * context buffers. */
     if (xSemaphoreTake(Semaphore_ExtFlashState, portMAX_DELAY) != pdTRUE)
     {
-        DEBUG_OUT(e, "Ymodem", "Failed to sync file data with download task");
+        DEBUG_OUT(e, YMODEM_LOG_TAG,
+                  "Failed to sync file data with download task");
         return;
     }
 
@@ -260,12 +262,13 @@ static int32_t Receive_Packet(uint8_t *data, int32_t *length, uint32_t timeout)
         if ((Receive_Byte(&c, 1, timeout) == 0) && (c == CA))
         {
             *length = -1;
-            DEBUG_OUT(i, "Ymodem", "Received double CA, aborting transfer...");
+            DEBUG_OUT(i, YMODEM_LOG_TAG,
+                      "Received double CA, aborting transfer...");
             return (int32_t)YMODEM_PKT_SUCCESS;
         }
         else
         {
-            DEBUG_OUT(w, "Ymodem",
+            DEBUG_OUT(w, YMODEM_LOG_TAG,
                       "Single CA received, waiting for second CA...");
             return (int32_t)YMODEM_PKT_TIMEOUT;
         }
@@ -318,11 +321,11 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
 
         Ymodem_File_Info_User_Handler(ctx);
 
-        DEBUG_OUT(d, "FileInfo", "File size: %d bytes", ctx->size);
+        DEBUG_OUT(d, YMODEM_FILE_LOG_TAG, "File size: %d bytes", ctx->size);
 
         Send_Byte(ACK);
         Send_Byte(CRC16);
-        DEBUG_OUT(d, "FileInfo", "Transition to FILE_DATA state");
+        DEBUG_OUT(d, YMODEM_FILE_LOG_TAG, "Transition to FILE_DATA state");
         ctx->bytes_received = 0; /* Reset byte counter for new file */
         ctx->state          = YMODEM_RX_STATE_FILE_DATA;
         return (int32_t)YMODEM_RX_HANDLER_CONTINUE;
@@ -331,7 +334,8 @@ static int32_t Ymodem_RxState_FileInfo(Ymodem_RxContext_t *ctx)
     else
     {
         Send_Byte(ACK);
-        DEBUG_OUT(d, "Ymodem", "Session complete, file transfer successful");
+        DEBUG_OUT(d, YMODEM_LOG_TAG,
+                  "Session complete, file transfer successful");
         ctx->file_done    = 1;
         ctx->session_done = 1;
         return (int32_t)YMODEM_RX_HANDLER_DONE;
@@ -364,7 +368,7 @@ static int32_t Ymodem_RxState_FileData(Ymodem_RxContext_t *ctx)
 
         // Calculate and display progress (integer math, no float)
         uint32_t progress_percent = (ctx->bytes_received * 100) / ctx->size;
-        DEBUG_OUT(i, "FileData", "Progress: %d/%d bytes (%d%%)",
+        DEBUG_OUT(i, YMODEM_DATA_LOG_TAG, "Progress: %d/%d bytes (%d%%)",
                   ctx->bytes_received, ctx->size, progress_percent);
     }
 
@@ -406,7 +410,8 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
     ctx.state            = YMODEM_RX_STATE_FILE_INFO;
     /* Initialize FlashDestination variable */
 
-    DEBUG_OUT(i, "Ymodem", "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
+    DEBUG_OUT(i, YMODEM_LOG_TAG,
+              "Starting reception... (bufA @0x%08x)(bufB @0x%08x)",
               (uint32_t)buf[0], (uint32_t)buf[1]);
 
     while (1)
@@ -436,7 +441,7 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                          * packet */
                         ctx.state     = YMODEM_RX_STATE_FILE_INFO;
                         ctx.file_done = 1;
-                        DEBUG_OUT(d, "Ymodem",
+                        DEBUG_OUT(d, YMODEM_LOG_TAG,
                                   "EOT received, waiting for EOF packet...");
                     }
                     else if (ctx.state == YMODEM_RX_STATE_FILE_INFO)
@@ -444,7 +449,7 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                         /* Second EOT or EOF packet received, end session */
                         ctx.file_done    = 1;
                         ctx.session_done = 1;
-                        DEBUG_OUT(i, "Ymodem",
+                        DEBUG_OUT(i, YMODEM_LOG_TAG,
                                   "Session complete, file transfer successful");
                     }
                     break;
@@ -456,12 +461,12 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                     uint8_t exp_seqno = ctx.packets_received & 0xff;
 
                     /* Debug: Print sequence number */
-                    DEBUG_OUT(i, "Packet", "Seqno: %d Expected: %d", pkt_seqno,
-                              exp_seqno);
+                    DEBUG_OUT(d, YMODEM_PACKET_LOG_TAG,
+                              "Seqno: %d Expected: %d", pkt_seqno, exp_seqno);
 
                     if (pkt_seqno != exp_seqno)
                     {
-                        DEBUG_OUT(w, "Packet",
+                        DEBUG_OUT(w, YMODEM_PACKET_LOG_TAG,
                                   "Sequence mismatch, sending NAK");
                         Send_Byte(NAK);
                     }
@@ -497,12 +502,12 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
                 if (ctx.session_begin > 0)
                 {
                     ctx.errors++;
-                    DEBUG_OUT(w, "Error", "Timeout/Error, count: %d/%d",
+                    DEBUG_OUT(w, YMODEM_LOG_TAG, "Timeout/Error, count: %d/%d",
                               ctx.errors, MAX_ERRORS);
                 }
                 if (ctx.errors > MAX_ERRORS)
                 {
-                    DEBUG_OUT(e, "Error", "Max errors exceeded!");
+                    DEBUG_OUT(e, YMODEM_LOG_TAG, "Max errors exceeded!");
                     Send_Byte(CA);
                     Send_Byte(CA);
                     return (int32_t)YMODEM_RX_TIMEOUT_ERR;
@@ -528,12 +533,14 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
             Send_Byte(CRC16);  /* Request next packet */
             ctx.file_done = 0; /* Reset to allow new file processing */
             ctx.errors    = 0; /* Reset error count for new packet reception */
-            DEBUG_OUT(d, "Ymodem", "Requesting next packet with CRC16...");
+            DEBUG_OUT(d, YMODEM_LOG_TAG,
+                      "Requesting next packet with CRC16...");
         }
     }
 
     /* Debug: Final result */
-    DEBUG_OUT(i, "Result", "Total bytes received: %d", ctx.bytes_received);
+    DEBUG_OUT(i, YMODEM_LOG_TAG, "Total bytes received: %d",
+              ctx.bytes_received);
 
     return ctx.bytes_received; /* Return actual bytes received */
 }

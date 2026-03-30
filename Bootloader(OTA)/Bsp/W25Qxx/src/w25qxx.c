@@ -1,3 +1,5 @@
+#include "main.h"
+
 #include "w25qxx.h"
 
 extern volatile uint32_t SysTickUptime;
@@ -10,7 +12,7 @@ W25Qx_Parameter W25Qx_Para;
  * @brief  Initializes the W25QXXXX interface.
  * @retval None
  */
-uint8_t         W25Qx_Init(void)
+uint8_t W25Qx_Init(void)
 {
     uint8_t state;
     /* Reset W25Qxxx */
@@ -120,7 +122,6 @@ void W25Qx_Read_ID(uint16_t *ID)
     W25Qx_Disable();
 }
 
-#include <math.h>
 /**
  * @brief  Get W25QX Parameter.
  * @param  Para: W25Qx_Parameter
@@ -139,7 +140,7 @@ uint8_t W25Qx_Get_Parameter(W25Qx_Parameter *Para)
     if (id < W25Q80 || id > W25Q128)
         return W25Qx_ERROR;
 
-    size                  = (uint32_t)powf(2, (id - 0xEF13)) * 1024 * 1024;
+    size                  = (1UL << (uint32_t)(id - W25Q80)) * 1024UL * 1024UL;
 
     Para->FLASH_ID        = id;
     Para->FLASH_SIZE      = size;

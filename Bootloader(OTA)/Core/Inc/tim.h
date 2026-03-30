@@ -13,8 +13,6 @@
 #endif 
 
 #include "stm32f4xx.h"
-#include "main.h"
-
 
 void TIM_Config(void);
 

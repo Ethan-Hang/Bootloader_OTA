@@ -3,18 +3,21 @@
 
 #include "stm32f4xx.h"
 #include "iwdg.h"
-
+#include "main.h"
 #include "bootmanager.h"
-#include "elog.h"
-#include "../../../Debug/inc/Debug.h"
-#include "aes.h"
-#include "w25qxx_Handler.h"
+
 #include "at24cxx_driver.h"
+#include "w25qxx_Handler.h"
+
+#include "elog.h"
 #include "ymodem.h"
+
+#include "Debug.h"
 
 extern uint8_t       tab_1024[1024];
 extern uint8_t       key_scan(void);
 extern uint32_t      g_jumpinit;
+extern volatile bool elog_init_flag;
 
 static const uint8_t s_iv_default[16] = {0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
                                          0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
@@ -47,7 +50,7 @@ static void ota_watchdog_start(void)
         IWDG_ReloadCounter();
         IWDG_Enable();
         s_iwdg_started = true;
-        DEBUG_OUT(i, "", "OTA watchdog started");
+        DEBUG_OUT(i, OTA_LOG_TAG, "OTA watchdog started");
     }
 
     ota_watchdog_feed();
@@ -68,13 +71,13 @@ static int8_t ex_block_to_app(uint8_t block_index, const char *tag)
 
     if (flash_size == 0U)
     {
-        DEBUG_OUT(e, "", "%s: invalid block size 0", tag);
+        DEBUG_OUT(e, OTA_LOG_TAG, "%s: invalid block size 0", tag);
         return -1;
     }
 
     if (Flash_erase(flash_des, flash_size) != 0U)
     {
-        DEBUG_OUT(e, "", "%s: internal flash erase failed", tag);
+        DEBUG_OUT(e, OTA_LOG_TAG, "%s: internal flash erase failed", tag);
         return -1;
     }
 
@@ -87,21 +90,21 @@ static int8_t ex_block_to_app(uint8_t block_index, const char *tag)
 
         if (read_state == 1U)
         {
-            DEBUG_OUT(i, "", "%s: copy complete, size=%lu bytes", tag,
+            DEBUG_OUT(i, OTA_LOG_TAG, "%s: copy complete, size=%lu bytes", tag,
                       (unsigned long)flash_size);
             return 0;
         }
 
         if (read_state == 2U)
         {
-            DEBUG_OUT(e, "", "%s: read external flash failed", tag);
+            DEBUG_OUT(e, OTA_LOG_TAG, "%s: read external flash failed", tag);
             return -1;
         }
 
         if ((read_memory_size % 4U) != 0U)
         {
-            DEBUG_OUT(e, "", "%s: read size %u is not 4-byte aligned", tag,
-                      read_memory_size);
+            DEBUG_OUT(e, OTA_LOG_TAG, "%s: read size %u is not 4-byte aligned",
+                      tag, read_memory_size);
             return -1;
         }
 
@@ -127,7 +130,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
 
     if (exA_to_exB_AES(file_size) != 0)
     {
-        DEBUG_OUT(e, "", "ota_apply_update: exA_to_exB_AES failed");
+        DEBUG_OUT(e, OTA_LOG_TAG, "ota_apply_update: exA_to_exB_AES failed");
         if (!first_boot)
         {
             uint8_t ee_status = EE_OTA_NO_APP_UPDATE;
@@ -144,7 +147,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
         if (ee_ReadBytes((uint8_t *)&current_app_size, 0x05, 4) == 0)
         {
             DEBUG_OUT(
-                w, "",
+                w, OTA_LOG_TAG,
                 "ota_apply_update: read current app size failed, use fallback");
             current_app_size = 0U;
         }
@@ -156,7 +159,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
             {
                 current_app_size = (uint32_t)file_size;
                 DEBUG_OUT(
-                    w, "",
+                    w, OTA_LOG_TAG,
                     "ota_apply_update: fallback current app size=%lu bytes",
                     (unsigned long)current_app_size);
             }
@@ -165,17 +168,19 @@ void ota_apply_update(int32_t file_size, bool first_boot)
         if ((current_app_size > 0U) &&
             (current_app_size <= (uint32_t)(0x18010 - 1)))
         {
-            DEBUG_OUT(d, "", "Current app size read from EEPROM: %lu bytes",
+            DEBUG_OUT(d, OTA_LOG_TAG,
+                      "Current app size read from EEPROM: %lu bytes",
                       (unsigned long)current_app_size);
 
             if (app_to_exA(current_app_size) != 0)
             {
-                DEBUG_OUT(w, "", "ota_apply_update: backup current app failed");
+                DEBUG_OUT(w, OTA_LOG_TAG,
+                          "ota_apply_update: backup current app failed");
             }
         }
         else
         {
-            DEBUG_OUT(w, "",
+            DEBUG_OUT(w, OTA_LOG_TAG,
                       "ota_apply_update: skip backup due to invalid app size");
         }
     }
@@ -184,7 +189,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
 
     if (exB_to_app() != 0)
     {
-        DEBUG_OUT(e, "", "ota_apply_update: apply new app failed");
+        DEBUG_OUT(e, OTA_LOG_TAG, "ota_apply_update: apply new app failed");
         if (!first_boot)
         {
             uint8_t ee_status = EE_OTA_NO_APP_UPDATE;
@@ -198,7 +203,8 @@ void ota_apply_update(int32_t file_size, bool first_boot)
         uint8_t ee_status = EE_OTA_APP_CHECK_START;
         if (ee_WriteBytes((uint8_t *)&ee_status, 0x00, 1) == 0)
         {
-            DEBUG_OUT(e, "", "ota_apply_update: write OTA check start failed");
+            DEBUG_OUT(e, OTA_LOG_TAG,
+                      "ota_apply_update: write OTA check start failed");
             jump_to_app();
             return;
         }
@@ -209,7 +215,8 @@ void ota_apply_update(int32_t file_size, bool first_boot)
         uint32_t new_app_size = (uint32_t)file_size;
         if (ee_WriteBytes((uint8_t *)&new_app_size, 0x05, 4) == 0)
         {
-            DEBUG_OUT(w, "", "ota_apply_update: write current app size failed");
+            DEBUG_OUT(w, OTA_LOG_TAG,
+                      "ota_apply_update: write current app size failed");
         }
     }
 
@@ -221,7 +228,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
 
         if (exA_to_app() != 0)
         {
-            DEBUG_OUT(e, "", "ota_apply_update: rollback copy failed");
+            DEBUG_OUT(e, OTA_LOG_TAG, "ota_apply_update: rollback copy failed");
             return;
         }
     }
@@ -274,9 +281,13 @@ void jump_to_app(void)
     }
     else
     {
-        DEBUG_OUT(e, "",
-                  "jump_to_app: invalid stack pointer 0x%08lX at app 0x%08lX",
-                  (unsigned long)sp, (unsigned long)ApplicationAddress);
+        if (elog_init_flag)
+        {
+            DEBUG_OUT(
+                e, OTA_LOG_TAG,
+                "jump_to_app: invalid stack pointer 0x%08lX at app 0x%08lX",
+                (unsigned long)sp, (unsigned long)ApplicationAddress);
+        }
     }
 }
 
@@ -296,7 +307,7 @@ int8_t exA_to_exB_AES(int32_t fl_size)
 
     if ((fl_size <= 0) || (fl_size > (int32_t)(0x18010 - 1)))
     {
-        DEBUG_OUT(e, "", "exA_to_exB_AES: invalid input size=%ld",
+        DEBUG_OUT(e, OTA_LOG_TAG, "exA_to_exB_AES: invalid input size=%ld",
                   (long)fl_size);
         return -1;
     }
@@ -311,7 +322,8 @@ int8_t exA_to_exB_AES(int32_t fl_size)
     read_state = W25Q64_ReadData(BLOCK_1, s_mem_read_buffer, &read_memory_size);
     if ((read_state != 0U) || (read_memory_size < 16U))
     {
-        DEBUG_OUT(e, "", "exA_to_exB_AES: first read failed, state=%u size=%u",
+        DEBUG_OUT(e, OTA_LOG_TAG,
+                  "exA_to_exB_AES: first read failed, state=%u size=%u",
                   read_state, read_memory_size);
         return -1;
     }
@@ -322,12 +334,12 @@ int8_t exA_to_exB_AES(int32_t fl_size)
     app_size = ((uint32_t)temp[15] << 24) | ((uint32_t)temp[14] << 16) |
                ((uint32_t)temp[13] << 8) | (uint32_t)temp[12];
 
-    DEBUG_OUT(d, "", "exA_to_exB_AES: decoded AppSize=%lu, input=%ld",
+    DEBUG_OUT(d, OTA_LOG_TAG, "exA_to_exB_AES: decoded AppSize=%lu, input=%ld",
               (unsigned long)app_size, (long)fl_size);
 
     if ((app_size == 0U) || (app_size > (uint32_t)fl_size))
     {
-        DEBUG_OUT(e, "", "exA_to_exB_AES: decoded AppSize invalid");
+        DEBUG_OUT(e, OTA_LOG_TAG, "exA_to_exB_AES: decoded AppSize invalid");
         return -1;
     }
 
@@ -337,7 +349,8 @@ int8_t exA_to_exB_AES(int32_t fl_size)
         read_data_count++;
     }
 
-    DEBUG_OUT(i, "", "exA_to_exB_AES: decrypt progress 0%% (0/%lu bytes)",
+    DEBUG_OUT(i, OTA_LOG_TAG,
+              "exA_to_exB_AES: decrypt progress 0%% (0/%lu bytes)",
               (unsigned long)app_size);
 
     read_memory_idx = 16U;
@@ -358,8 +371,8 @@ int8_t exA_to_exB_AES(int32_t fl_size)
                 W25Q64_ReadData(BLOCK_1, s_mem_read_buffer, &read_memory_size);
             if (read_state != 0U)
             {
-                DEBUG_OUT(e, "", "exA_to_exB_AES: block read failed at %u",
-                          read_time);
+                DEBUG_OUT(e, OTA_LOG_TAG,
+                          "exA_to_exB_AES: block read failed at %u", read_time);
                 return -1;
             }
             read_memory_idx = 0U;
@@ -367,7 +380,8 @@ int8_t exA_to_exB_AES(int32_t fl_size)
 
         if ((read_memory_idx + 16U) > read_memory_size)
         {
-            DEBUG_OUT(e, "", "exA_to_exB_AES: frame overflow idx=%lu size=%u",
+            DEBUG_OUT(e, OTA_LOG_TAG,
+                      "exA_to_exB_AES: frame overflow idx=%lu size=%u",
                       (unsigned long)read_memory_idx, read_memory_size);
             return -1;
         }
@@ -391,7 +405,7 @@ int8_t exA_to_exB_AES(int32_t fl_size)
         if (progress_step > progress_last)
         {
             progress_last = progress_step;
-            DEBUG_OUT(i, "",
+            DEBUG_OUT(i, OTA_LOG_TAG,
                       "exA_to_exB_AES: decrypt progress %lu%% (%lu/%lu bytes)",
                       (unsigned long)(progress_last * 10U),
                       (unsigned long)decoded_bytes, (unsigned long)app_size);
@@ -399,7 +413,8 @@ int8_t exA_to_exB_AES(int32_t fl_size)
     }
 
     W25Q64_WriteData_End(BLOCK_2);
-    DEBUG_OUT(i, "", "exA_to_exB_AES: decode and copy done, AppSize=%lu",
+    DEBUG_OUT(i, OTA_LOG_TAG,
+              "exA_to_exB_AES: decode and copy done, AppSize=%lu",
               (unsigned long)app_size);
 
     return 0;
@@ -407,12 +422,12 @@ int8_t exA_to_exB_AES(int32_t fl_size)
 
 int8_t app_to_exA(uint32_t fl_size)
 {
-    DEBUG_OUT(d, "",
+    DEBUG_OUT(d, OTA_LOG_TAG,
               "Start to backup current app to external flash A, size=%lu bytes",
               (unsigned long)fl_size);
     if ((fl_size == 0U) || (fl_size > (uint32_t)(0x18010 - 1)))
     {
-        DEBUG_OUT(e, "", "app_to_exA: invalid app size=%lu",
+        DEBUG_OUT(e, OTA_LOG_TAG, "app_to_exA: invalid app size=%lu",
                   (unsigned long)fl_size);
         return -1;
     }
@@ -426,14 +441,14 @@ int8_t app_to_exA(uint32_t fl_size)
 
 int8_t exB_to_app(void)
 {
-    DEBUG_OUT(d, "", "Start to copy external flash B to app");
+    DEBUG_OUT(d, OTA_LOG_TAG, "Start to copy external flash B to app");
 
     return ex_block_to_app(BLOCK_2, "exB_to_app");
 }
 
 int8_t exA_to_app(void)
 {
-    DEBUG_OUT(d, "", "Start to copy external flash A to app");
+    DEBUG_OUT(d, OTA_LOG_TAG, "Start to copy external flash A to app");
 
     return ex_block_to_app(BLOCK_1, "exA_to_app");
 }
@@ -447,13 +462,13 @@ void OTA_StateManager(void)
 
     if (ee_ReadBytes(&ota_state, 0x00, 1) == 0)
     {
-        DEBUG_OUT(e, "", "OTA_StateManager: read OTA state failed");
+        DEBUG_OUT(e, OTA_LOG_TAG, "OTA_StateManager: read OTA state failed");
         return;
     }
 
     if (0 == send_wait_time)
     {
-        DEBUG_OUT(i, "", "OTA state=0x%02X", ota_state);
+        DEBUG_OUT(i, OTA_LOG_TAG, "OTA state=0x%02X", ota_state);
     }
 
     ota_watchdog_feed();
@@ -461,14 +476,15 @@ void OTA_StateManager(void)
     switch (ota_state)
     {
     case EE_INIT_NO_APP:
-        DEBUG_OUT(i, "", "No app in flash, wait for key press to download");
+        DEBUG_OUT(i, OTA_LOG_TAG,
+                  "No app in flash, wait for key press to download");
         if (key_scan())
         {
             file_size = Ymodem_Receive(tab_1024);
 
             if (file_size <= 0)
             {
-                DEBUG_OUT(e, "", "OTA download failed, file_size=%ld",
+                DEBUG_OUT(e, OTA_LOG_TAG, "OTA download failed, file_size=%ld",
                           (long)file_size);
                 break;
             }
@@ -481,7 +497,7 @@ void OTA_StateManager(void)
             if (send_wait_time >= 20000U)
             {
                 DEBUG_OUT(
-                    w, "",
+                    w, OTA_LOG_TAG,
                     "No app and no update, wait for key press to download");
                 send_wait_time = 0U;
             }
@@ -494,7 +510,7 @@ void OTA_StateManager(void)
 
             if (file_size <= 0)
             {
-                DEBUG_OUT(e, "", "OTA download failed, file_size=%ld",
+                DEBUG_OUT(e, OTA_LOG_TAG, "OTA download failed, file_size=%ld",
                           (long)file_size);
                 jump_to_app();
                 break;
@@ -511,7 +527,7 @@ void OTA_StateManager(void)
         break;
 
     case EE_OTA_DOWNLOADING:
-        DEBUG_OUT(w, "", "OTA previous downloading interrupted");
+        DEBUG_OUT(w, OTA_LOG_TAG, "OTA previous downloading interrupted");
         jump_to_app();
 
         file_size = Ymodem_Receive(tab_1024);
@@ -521,7 +537,7 @@ void OTA_StateManager(void)
     case EE_OTA_DOWNLOAD_FINISHED:
         if (ee_ReadBytes((uint8_t *)&app_size, 0x01, 4) == 0)
         {
-            DEBUG_OUT(e, "",
+            DEBUG_OUT(e, OTA_LOG_TAG,
                       "OTA_StateManager: read downloaded app size failed");
             jump_to_app();
             break;
@@ -529,7 +545,8 @@ void OTA_StateManager(void)
 
         if (app_size == 0U)
         {
-            DEBUG_OUT(e, "", "OTA_StateManager: downloaded app size is 0");
+            DEBUG_OUT(e, OTA_LOG_TAG,
+                      "OTA_StateManager: downloaded app size is 0");
             jump_to_app();
             break;
         }
@@ -552,7 +569,8 @@ void OTA_StateManager(void)
         soft_reset();
         break;
     default:
-        DEBUG_OUT(e, "", "OTA_StateManager: unknown state 0x%02X", ota_state);
+        DEBUG_OUT(e, OTA_LOG_TAG, "OTA_StateManager: unknown state 0x%02X",
+                  ota_state);
         break;
     }
 }

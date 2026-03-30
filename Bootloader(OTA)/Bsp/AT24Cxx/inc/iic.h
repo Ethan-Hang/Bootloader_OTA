@@ -1,7 +1,6 @@
 #ifndef _IIC_H
 #define _IIC_H
 
-#include "main.h"
 #include "stm32f4xx.h"
 /*EEPROM写方向*/
 #define EEPROM_I2C_WR        0

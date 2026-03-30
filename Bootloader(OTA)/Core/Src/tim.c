@@ -6,6 +6,7 @@
   */
 
 #include "tim.h"
+#include "main.h"
 /**
  * @brief  Configures the TIM IRQ Handler.
  * @param  None

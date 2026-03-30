@@ -1,21 +1,17 @@
 /* Includes ------------------------------------------------------------------*/
-#include <stdio.h>
-#include <stddef.h>
-
 #include "main.h"
-#include "tim.h"
 #include "gpio.h"
-#include "uart.h"
 #include "spi.h"
-#include "iic.h"
+#include "uart.h"
 
 #include "bootmanager.h"
-#include "elog.h"
-#include "../../Debug/inc/Debug.h"
-#include "ymodem.h"
-#include "flash.h"
-#include "w25qxx_Handler.h"
+
 #include "at24cxx_driver.h"
+#include "w25qxx_Handler.h"
+
+#include "elog.h"
+
+#include "Debug.h"
 
 
 /* Private typedef -----------------------------------------------------------*/
@@ -26,15 +22,16 @@ typedef void (*pFunction)(void);
 static __IO uint32_t uwTimingDelay;
 RCC_ClocksTypeDef    RCC_Clocks;
 uint8_t              tab_1024[1024];
+volatile bool        elog_init_flag = false;
 
 /* Keep jump flag across soft reset by placing it in UNINIT memory. */
-uint32_t             g_jumpinit __attribute__((section("NO_INIT"), zero_init));
+uint32_t g_jumpinit __attribute__((section("NO_INIT"), zero_init));
 
 /* Note: g_buf is no longer needed - OTA now writes directly to Flash */
 /* Private function prototypes -----------------------------------------------*/
 
 
-uint8_t              key_scan(void)
+uint8_t key_scan(void)
 {
     if (Bit_RESET == GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0))
     {
@@ -88,12 +85,14 @@ int main(void)
     elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
     elog_start();
+    elog_init_flag = true;
 
     ee_CheckOk();
 
     // ee_Erase();
     // W25Q64_EraseChip();
-    // DEBUG_OUT(i, "", "EEPROM and external flash erased successfully");
+    // DEBUG_OUT(i, EEPROM_LOG_TAG,
+    //           "EEPROM and external flash erased successfully");
 
     W25Q64_Init();
 
@@ -101,11 +100,11 @@ int main(void)
     ee_ReadBytes(&ee_read_ota_status, 0x00, 1);
     uint32_t ee_read_ota_size = 0;
     ee_ReadBytes((uint8_t *)&ee_read_ota_size, 0x05, sizeof(ee_read_ota_size));
-    DEBUG_OUT(d, "EEPROM", "OTA state: %d, App size: %lu bytes",
+    DEBUG_OUT(d, EEPROM_LOG_TAG, "OTA state: %d, App size: %lu bytes",
               ee_read_ota_status, (unsigned long)ee_read_ota_size);
 
 
-    DEBUG_OUT(i, "", "this is bootloader");
+    DEBUG_OUT(i, MAIN_LOG_TAG, "this is bootloader");
 
     // TIM_Config();
 
