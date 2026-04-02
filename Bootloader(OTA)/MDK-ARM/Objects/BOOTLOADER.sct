@@ -10,10 +10,10 @@ LR_IROM1 0x08000000 0x00008000  {    ; load region size_region
    .ANY (+XO)
   }
 
-  RW_IRAM1 0x20000000 0x0001DFFC  {  ; RW data
+  RW_IRAM1 0x20000000 0x0001DFF0  {  ; RW data
    .ANY (+RW +ZI)
   }
-  OTAFLAG  0x2001DFFC UNINIT 0x00000004  {  ; reset-persistent jump flag
+  OTAFLAG  0x2001DFF0 UNINIT 0x0000000F  {  ; reset-persistent jump flag
    .ANY (NO_INIT)
   }
   RW_RTT   0x2001E000 0x00002000  {  ; RTT fixed RAM region (CB + buffers)

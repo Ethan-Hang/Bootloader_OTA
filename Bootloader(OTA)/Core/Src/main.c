@@ -77,7 +77,7 @@ int main(void)
     GPIO_Config();
     usart1_init();
     SPI1_Init();
-    TIM_Config();
+    // TIM_Config();
 
     elog_init();
     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
@@ -90,7 +90,7 @@ int main(void)
 
     ee_CheckOk();
 
-//    ee_Erase();
+//   ee_Erase();
 //    W25Q64_EraseChip();
 //    DEBUG_OUT(i, EEPROM_LOG_TAG,
 //              "EEPROM and external flash erased successfully");

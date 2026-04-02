@@ -16,7 +16,7 @@
 
 extern uint8_t       tab_1024[1024];
 extern uint8_t       key_scan(void);
-extern uint32_t      g_jumpinit;
+extern uint32_t g_jumpinit __attribute__((section("NO_INIT"), zero_init));
 extern volatile bool elog_init_flag;
 
 static const uint8_t s_iv_default[16] = {0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
@@ -222,6 +222,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
 
     jump_to_app();
 
+    // no valid app to run, use backup if available
     if (!first_boot)
     {
         ota_watchdog_feed();
@@ -242,7 +243,7 @@ static void disable_all_peripherals(void)
 
     elog_stop();
     elog_deinit();
-    TIM_DeInit(TIM3);
+    // TIM_DeInit(TIM3);
 
     USART_DeInit(USART1);
     GPIO_DeInit(GPIOA);
@@ -265,8 +266,6 @@ void jump_to_app(void)
     uint32_t  sp            = *(__IO uint32_t *)(ApplicationAddress);
     uint32_t  jump_addr     = *(__IO uint32_t *)(ApplicationAddress + 4U);
     pFunction jump_app_func = NULL;
-
-    delay_ms(100);
 
     if ((sp & 0x2FFE0000U) == 0x20000000U)
     {
@@ -556,13 +555,13 @@ void OTA_StateManager(void)
         ota_apply_update((int32_t)app_size, false);
         break;
     case EE_OTA_APP_CHECK_START:
-        ota_state = EE_OTA_NO_APP_UPDATE;
+        ota_state = EE_OTA_APP_CHECKING;
         ee_WriteBytes(&ota_state, 0x00, 1);
 
         ota_watchdog_start();
         jump_to_app();
         break;
-    case EE_OTA_APP_CHECK_SUCCESS:
+    case EE_OTA_APP_CHECKING:
         ota_state = EE_OTA_NO_APP_UPDATE;
         ee_WriteBytes(&ota_state, 0x00, 1);
 

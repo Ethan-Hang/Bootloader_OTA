@@ -104,7 +104,7 @@ void MX_FREERTOS_Init(void)
 
     /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
-    //OTA_taskHandle = osThreadNew(ota_task_runnable, NULL, &OTA_task_attributes);
+    OTA_taskHandle = osThreadNew(ota_task_runnable, NULL, &OTA_task_attributes);
 
     /* USER CODE END RTOS_THREADS */
 
