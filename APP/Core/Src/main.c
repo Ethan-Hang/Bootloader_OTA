@@ -73,8 +73,8 @@ extern void soft_reset(void);
 int main(void)
 {
     /* USER CODE BEGIN 1 */
-    SCB->VTOR = FLASH_BASE | 0x00008000;
-    __enable_irq();
+//    SCB->VTOR = FLASH_BASE | 0x00008000;
+//    __enable_irq();
     /* USER CODE END 1 */
 
     /* MCU
@@ -105,36 +105,36 @@ int main(void)
 
     ee_CheckOk();
     W25Q64_Init();
-    uint8_t ee_read_flag = 0xFF;
-    if (ee_ReadBytes(&ee_read_flag, 0x00, 1) == 0)
-    {
-        DEBUG_OUT(e, MAIN_LOG_TAG, "Read OTA state from EEPROM failed");
-        soft_reset();
-    }
+//    uint8_t ee_read_flag = 0xFF;
+//    if (ee_ReadBytes(&ee_read_flag, 0x00, 1) == 0)
+//    {
+//        DEBUG_OUT(e, MAIN_LOG_TAG, "Read OTA state from EEPROM failed");
+//        soft_reset();
+//    }
 
-    switch (ee_read_flag)
-    {
-    case EE_OTA_APP_CHECK_START:
-        ee_read_flag = EE_OTA_APP_CHECK_SUCCESS;
-        ee_WriteBytes(&ee_read_flag, 0x00, 1);
-        DEBUG_OUT(i, MAIN_LOG_TAG, "OTA first-boot check marked as success");
-        break;
+//    switch (ee_read_flag)
+//    {
+//    case EE_OTA_APP_CHECK_START:
+//        ee_read_flag = EE_OTA_APP_CHECK_SUCCESS;
+//        ee_WriteBytes(&ee_read_flag, 0x00, 1);
+//        DEBUG_OUT(i, MAIN_LOG_TAG, "OTA first-boot check marked as success");
+//        break;
 
-    case EE_OTA_APP_CHECK_SUCCESS:
-        ee_read_flag = EE_OTA_NO_APP_UPDATE;
-        ee_WriteBytes(&ee_read_flag, 0x00, 1);
-        DEBUG_OUT(i, MAIN_LOG_TAG, "OTA check flag cleared to NO_APP_UPDATE");
-        break;
+//    case EE_OTA_APP_CHECK_SUCCESS:
+//        ee_read_flag = EE_OTA_NO_APP_UPDATE;
+//        ee_WriteBytes(&ee_read_flag, 0x00, 1);
+//        DEBUG_OUT(i, MAIN_LOG_TAG, "OTA check flag cleared to NO_APP_UPDATE");
+//        break;
 
-    case EE_OTA_NO_APP_UPDATE:
-        break;
+//    case EE_OTA_NO_APP_UPDATE:
+//        break;
 
-    default:
-        DEBUG_OUT(w, MAIN_LOG_TAG, "Unexpected OTA state: 0x%02X",
-                  ee_read_flag);
-        soft_reset();
-        break;
-    }
+//    default:
+//        DEBUG_OUT(w, MAIN_LOG_TAG, "Unexpected OTA state: 0x%02X",
+//                  ee_read_flag);
+//        soft_reset();
+//        break;
+//    }
 
     DEBUG_OUT(i, MAIN_LOG_TAG, "System initialized successfully.");
     /* USER CODE END 2 */

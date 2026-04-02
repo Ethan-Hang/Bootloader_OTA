@@ -240,8 +240,9 @@ static void disable_all_peripherals(void)
 {
     __disable_irq();
 
-    // elog_stop();
+    elog_stop();
     elog_deinit();
+    TIM_DeInit(TIM3);
 
     USART_DeInit(USART1);
     GPIO_DeInit(GPIOA);

@@ -26,8 +26,8 @@ compile_commands.json
 *.hex
 *.bin
 *.Bak
-Objects/
-
+# Objects/
+!BOOTLOADER.sct
 
 
 # Keil User Settings Files (Personal Configurations, Should Not Be Shared)

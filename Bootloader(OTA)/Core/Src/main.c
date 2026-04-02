@@ -3,6 +3,7 @@
 #include "gpio.h"
 #include "spi.h"
 #include "uart.h"
+#include "tim.h"
 
 #include "bootmanager.h"
 
@@ -69,7 +70,6 @@ int main(void)
     RCC_GetClocksFreq(&RCC_Clocks);
     SysTick_Config(RCC_Clocks.HCLK_Frequency / 1000);
 
-
     /* Add your application code here */
     /* Insert 50 ms delay */
     delay_ms(50);
@@ -77,6 +77,7 @@ int main(void)
     GPIO_Config();
     usart1_init();
     SPI1_Init();
+    TIM_Config();
 
     elog_init();
     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_LVL | ELOG_FMT_TAG);
@@ -89,10 +90,10 @@ int main(void)
 
     ee_CheckOk();
 
-    // ee_Erase();
-    // W25Q64_EraseChip();
-    // DEBUG_OUT(i, EEPROM_LOG_TAG,
-    //           "EEPROM and external flash erased successfully");
+//    ee_Erase();
+//    W25Q64_EraseChip();
+//    DEBUG_OUT(i, EEPROM_LOG_TAG,
+//              "EEPROM and external flash erased successfully");
 
     W25Q64_Init();
 
@@ -105,9 +106,6 @@ int main(void)
 
 
     DEBUG_OUT(i, MAIN_LOG_TAG, "this is bootloader");
-
-    // TIM_Config();
-
 
     /* Infinite loop */
     while (1)
