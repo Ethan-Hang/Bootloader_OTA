@@ -1,3 +1,23 @@
+/**
+ ******************************************************************************
+ * @file at24cxx_driver.c
+ *
+ * @par dependencies
+ * - iic.h
+ * - at24cxx_driver.h
+ * - Debug.h
+ *
+ * @author Ethan-Hang
+ *
+ * @brief
+ * AT24Cxx EEPROM read/write driver over software I2C.
+ *
+ * @version V1.0 2026-4-3
+ *
+ * @note 1 tab == 4 spaces!
+ ******************************************************************************
+ */
+
 #include "iic.h"
 #include "at24cxx_driver.h"
 #include "Debug.h"
@@ -194,11 +214,26 @@ cmd_fail: /* 命令执行失败后，切记发送停止信号，避免影响I2C�
     i2c_Stop();
     return 0;
 }
+
+/**
+ * @brief
+ * Erase full EEPROM area to 0xFF.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ee_Erase(void)
 {
     uint16_t i;
     uint8_t  buf[EEPROM_SIZE];
 
+    /**
+     * Build an all-0xFF image and write it in one transaction.
+     **/
     /* 填充缓冲区 */
     for (i = 0; i < EEPROM_SIZE; i++)
     {
@@ -216,22 +251,48 @@ void ee_Erase(void)
         DEBUG_OUT(i, AT24CXX_LOG_TAG, "EEPROM erase success");
     }
 }
-/*--------------------------------------------------------------------------------------------------*/
-static void ee_Delay(__IO uint32_t nCount) // 简单的延时函数
+
+/**
+ * @brief
+ * Busy-loop delay used by local EEPROM test path.
+ *
+ * @param[in]  nCount : Loop counter for delay.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
+static void ee_Delay(__IO uint32_t nCount)
 {
+    /**
+     * Keep this local delay minimal and isolated to test routine.
+     **/
     for (; nCount != 0; nCount--)
         ;
 }
-/*
- * eeprom AT24C02 读写测试
- * 正常返回1，异常返回0
- */
+
+/**
+ * @brief
+ * Verify EEPROM read/write path with a full-capacity pattern test.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 1 on pass, 0 on fail.
+ * */
 uint8_t ee_Test(void)
 {
     uint16_t i;
 
     uint8_t  write_buf[EEPROM_SIZE];
     uint8_t  read_buf[EEPROM_SIZE];
+
+    /**
+     * Run write-then-readback validation across the whole EEPROM space.
+     **/
     /*-----------------------------------------------------------------------------------*/
     if (ee_CheckOk() == 0)
     {

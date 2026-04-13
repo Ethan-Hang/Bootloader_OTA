@@ -21,11 +21,76 @@
 
 /* Debug output uses DEBUG_OUT(...) in Debug.h */
 
+/**
+ * @brief
+ * Probe EEPROM device presence on I2C bus.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 1 when EEPROM responds, 0 otherwise.
+ * */
 uint8_t ee_CheckOk(void);
+
+/**
+ * @brief
+ * Read bytes from EEPROM starting at given address.
+ *
+ * @param[in]  _usAddress : EEPROM start address.
+ *
+ * @param[in]  _usSize    : Byte count to read.
+ *
+ * @param[out] _pReadBuf  : Destination buffer.
+ *
+ * @return
+ * 1 on success, 0 on failure.
+ * */
 uint8_t ee_ReadBytes(uint8_t *_pReadBuf, uint16_t _usAddress, uint16_t _usSize);
+
+/**
+ * @brief
+ * Write bytes to EEPROM from given address.
+ *
+ * @param[in] _pWriteBuf  : Source buffer.
+ *
+ * @param[in] _usAddress  : EEPROM start address.
+ *
+ * @param[in] _usSize     : Byte count to write.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 1 on success, 0 on failure.
+ * */
 uint8_t ee_WriteBytes(uint8_t *_pWriteBuf, uint16_t _usAddress,
                       uint16_t _usSize);
+
+/**
+ * @brief
+ * Erase EEPROM content to 0xFF.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void    ee_Erase(void);
+
+/**
+ * @brief
+ * Run EEPROM read/write self-test.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 1 when test passes, 0 on failure.
+ * */
 uint8_t ee_Test(void);
 
 #endif /* __I2C_EE_H */

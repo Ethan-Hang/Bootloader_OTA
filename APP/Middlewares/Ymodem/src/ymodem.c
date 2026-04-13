@@ -1,13 +1,44 @@
+/******************************************************************************
+ * @file ymodem.c
+ *
+ * @par dependencies
+ * - string.h
+ * - usart.h
+ * - main.h
+ * - FreeRTOS.h
+ * - queue.h
+ * - semphr.h
+ * - common.h
+ * - Debug.h
+ * 
+ * @author Ethan-Hang
+ *
+ * @brief
+ * Ymodem protocol receive and packet forward module.
+ *
+ * Processing flow:
+ * 1. Receive Ymodem packets over UART DMA.
+ * 2. Parse file info and payload packets.
+ * 3. Forward payload to OTA download task by queue.
+ * 4. Synchronize producer and consumer by semaphore.
+ *
+ * @version V1.0 2026-3-28
+ *
+ * @note 1 tab == 4 spaces!
+ *
+ *****************************************************************************/
+
 /* Includes ------------------------------------------------------------------*/
-#include "common.h"
-#include "Debug.h"
-#include "main.h"
-#include "usart.h"
 #include <string.h>
+#include "usart.h"
+#include "main.h"
 
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "semphr.h"
+
+#include "common.h"
+#include "Debug.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -22,7 +53,13 @@ static uint16_t          s_u16_YmodRecLength;
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
-static void              Int2Str(uint8_t *str, int32_t intnum)
+/**
+ * @brief  Convert integer to decimal string.
+ * @param  str: Output decimal string buffer.
+ * @param  intnum: Input integer.
+ * @retval None
+ */
+static void Int2Str(uint8_t *str, int32_t intnum)
 {
     uint32_t i, Div = 1000000000, j = 0, Status = 0;
 
@@ -43,6 +80,13 @@ static void              Int2Str(uint8_t *str, int32_t intnum)
     }
 }
 
+/**
+ * @brief  Convert string to integer.
+ * @param  inputstr: Input string, supports dec/hex and K/M suffix.
+ * @param  intnum: Output integer value.
+ * @retval 1: Convert success
+ *         0: Convert failed
+ */
 static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
 {
     uint32_t i = 0, res = 0;
@@ -59,7 +103,7 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
             if (inputstr[i] == '\0')
             {
                 *intnum = val;
-                // 返回1
+                // Return 1 on success.
                 res     = 1;
                 break;
             }
@@ -69,7 +113,7 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
             }
             else
             {
-                // 无效输入返回0
+                // Invalid input returns 0.
                 res = 0;
                 break;
             }
@@ -80,14 +124,14 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
             res = 0;
         }
     }
-    else // 最多10为2输入
+    else /* Decimal input, max 10 characters. */
     {
         for (i = 0; i < 11; i++)
         {
             if (inputstr[i] == '\0')
             {
                 *intnum = val;
-                // 返回1
+                // Return 1 on success.
                 res     = 1;
                 break;
             }
@@ -111,12 +155,12 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
             }
             else
             {
-                // 无效输入返回0
+                // Invalid input returns 0.
                 res = 0;
                 break;
             }
         }
-        // 超过10位无效，返回0
+        // More than 10 chars is invalid, return 0.
         if (i >= 11)
         {
             res = 0;
@@ -129,10 +173,11 @@ static uint32_t Str2Int(uint8_t *inputstr, int32_t *intnum)
 
 /**
  * @brief  Receive byte from sender
- * @param  c: Character
- * @param  timeout: Timeout
- * @retval 0: Byte received
- *         -1: Timeout
+ * @param  c: Receive buffer pointer.
+ * @param  length: Expected DMA receive length.
+ * @param  timeout: Timeout in ms.
+ * @retval YMODEM_PKT_SUCCESS: Data received.
+ * @retval YMODEM_PKT_TIMEOUT: Timeout or receive start failed.
  */
 static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
 {
@@ -174,6 +219,11 @@ static uint32_t Send_Byte(uint8_t c)
 }
 
 
+/**
+ * @brief  Handle FILE_INFO packet in user layer.
+ * @param  ctx: Ymodem receive context.
+ * @retval None
+ */
 static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
 {
     if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
@@ -200,6 +250,11 @@ static void Ymodem_File_Info_User_Handler(Ymodem_RxContext_t *ctx)
     }
 }
 
+/**
+ * @brief  Handle FILE_DATA packet in user layer.
+ * @param  ctx: Ymodem receive context.
+ * @retval None
+ */
 static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
 {
     if (xQueueSendToBack(Queue_AppDataBuffer, &ctx, portMAX_DELAY) != pdPASS)
@@ -229,13 +284,12 @@ static void Ymodem_File_Data_User_Handler(Ymodem_RxContext_t *ctx)
 
 /**
  * @brief  Receive a packet from sender
- * @param  data
- * @param  length
- * @param  timeout
- *     0: end of transmission
- *    -1: abort by sender
- *    >0: packet length
- * @retval Ymodem_PacketStatus_t: SUCCESS/TIMEOUT/ABORT
+ * @param  data: Packet buffer.
+ * @param  length: Output packet payload length.
+ * @param  timeout: Timeout in ms.
+ * @retval YMODEM_PKT_SUCCESS: Packet valid.
+ * @retval YMODEM_PKT_TIMEOUT: Timeout or packet invalid.
+ * @retval YMODEM_PKT_ABORT: Transfer aborted.
  */
 static int32_t Receive_Packet(uint8_t *data, int32_t *length, uint32_t timeout)
 {
@@ -547,8 +601,10 @@ int32_t Ymodem_Receive(uint8_t (*buf)[1030])
 
 /**
  * @brief  Prepare the first block
- * @param  timeout
- *     0: end of transmission
+ * @param  data: Output packet buffer.
+ * @param  g_fileName: File name string.
+ * @param  length: File length in bytes.
+ * @retval None
  */
 void Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *g_fileName,
                                 uint32_t *length)
@@ -583,8 +639,11 @@ void Ymodem_PrepareIntialPacket(uint8_t *data, const uint8_t *g_fileName,
 
 /**
  * @brief  Prepare the data packet
- * @param  timeout
- *     0: end of transmission
+ * @param  SourceBuf: Source payload buffer.
+ * @param  data: Output packet buffer.
+ * @param  pktNo: Packet sequence number.
+ * @param  sizeBlk: Remaining payload size.
+ * @retval None
  */
 void Ymodem_PreparePacket(uint8_t *SourceBuf, uint8_t *data, uint8_t pktNo,
                           uint32_t sizeBlk)
@@ -623,9 +682,9 @@ void Ymodem_PreparePacket(uint8_t *SourceBuf, uint8_t *data, uint8_t pktNo,
 
 /**
  * @brief  Update CRC16 for input byte
- * @param  CRC input value
- * @param  input byte
- * @retval None
+ * @param  crcIn: CRC input value.
+ * @param  byte: Input byte.
+ * @retval Updated CRC16 value.
  */
 uint16_t UpdateCRC16(uint16_t crcIn, uint8_t byte)
 {
@@ -646,9 +705,9 @@ uint16_t UpdateCRC16(uint16_t crcIn, uint8_t byte)
 
 /**
  * @brief  Cal CRC16 for YModem Packet
- * @param  data
- * @param  length
- * @retval None
+ * @param  data: Input data buffer.
+ * @param  size: Data length in bytes.
+ * @retval CRC16 value.
  */
 uint16_t Cal_CRC16(const uint8_t *data, uint32_t size)
 {
@@ -664,9 +723,9 @@ uint16_t Cal_CRC16(const uint8_t *data, uint32_t size)
 
 /**
  * @brief  Cal Check sum for YModem Packet
- * @param  data
- * @param  length
- * @retval None
+ * @param  data: Input data buffer.
+ * @param  size: Data length in bytes.
+ * @retval 8-bit checksum value.
  */
 uint8_t CalChecksum(const uint8_t *data, uint32_t size)
 {

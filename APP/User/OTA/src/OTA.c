@@ -1,3 +1,28 @@
+/******************************************************************************
+ * @file OTA.c
+ *
+ * @par dependencies
+ * - string.h
+ * - OTA.h
+ *
+ * @author Ethan-Hang
+ *
+ * @brief
+ * APP-side OTA command processing and Ymodem download state machine.
+ *
+ * Processing flow:
+ * 1. Wait for OTA command from serial port.
+ * 2. Receive firmware through Ymodem and write to external flash.
+ * 3. Update EEPROM state and wait for apply-update request.
+ * 4. Reboot to bootloader for image apply.
+ *
+ * @version V1.0 2025-4-2
+ *
+ * @note 1 tab == 4 spaces!
+ *
+ *****************************************************************************/
+
+
 #include <string.h>
 
 #include "OTA.h"
@@ -27,13 +52,35 @@ const osThreadAttr_t OTA_task_attributes = {
 
 void DownloadAppData_task_runnable(void *argument);
 
+/**
+ * @brief
+ * Trigger software reset and stop normal interrupts.
+ *
+ * @param[in]  : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void soft_reset(void)
 {
-    // diable all interrupts except NMI & RESET
+    // Disable all interrupts except NMI and RESET.
     __disable_fault_irq();
     NVIC_SystemReset();
 }
 
+/**
+ * @brief
+ * Release OTA download IPC resources and worker task.
+ *
+ * @param[in]  : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 static void ota_cleanup_download_resources(void)
 {
     Ymodem_RxContext_t *stop_ctx = NULL;
@@ -66,6 +113,17 @@ static void ota_cleanup_download_resources(void)
     DownloadAppData_taskHandle = NULL;
 }
 
+/**
+ * @brief
+ * Scan key input with debounce and timeout.
+ *
+ * @param[in]  : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 1 when key is pressed, -1 on timeout.
+ * */
 static int8_t Key_Scan(void)
 {
     DEBUG_OUT(d, OTA_LOG_TAG, "Scanning for key press...");
@@ -87,6 +145,19 @@ static int8_t Key_Scan(void)
     return -1;
 }
 
+/**
+ * @brief
+ * Wait for download command and prepare OTA resources.
+ *
+ * @param[in]  status    : Pointer to OTA runtime state.
+ *
+ * @param[in]  ee_status : Pointer to EEPROM OTA state.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_wait_for_download_req_handler(ota_download_status_t *status,
                                        ee_os_status_t        *ee_status)
 {
@@ -167,6 +238,19 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
     memset(s_otacmd, 0, sizeof(s_otacmd));
 }
 
+/**
+ * @brief
+ * Receive firmware data and update OTA status in EEPROM.
+ *
+ * @param[in]  status    : Pointer to OTA runtime state.
+ *
+ * @param[in]  ee_status : Pointer to EEPROM OTA state.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_download_handler(ota_download_status_t *status,
                           ee_os_status_t        *ee_status)
 {
@@ -228,14 +312,26 @@ void ota_download_handler(ota_download_status_t *status,
     ota_cleanup_download_resources();
 }
 
+/**
+ * @brief
+ * Wait for update-apply request after download is finished.
+ *
+ * @param[in]  status    : Pointer to OTA runtime state.
+ *
+ * @param[in]  ee_status : Pointer to EEPROM OTA state.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_wait_req_handler(ota_download_status_t *status,
                           ee_os_status_t        *ee_status)
 {
 
     HAL_UART_Transmit(&huart1, (uint8_t *)"Waiting for update request...\r\n",
                       32, HAL_MAX_DELAY);
-    // Start DMA reception to receive the update request command after download
-    // completion
+    // Start DMA reception to receive post-download update command.
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_otacmd, 4);
 
     uint16_t rec_length = 0;
@@ -260,6 +356,19 @@ void ota_wait_req_handler(ota_download_status_t *status,
     memset(s_otacmd, 0, sizeof(s_otacmd));
 }
 
+/**
+ * @brief
+ * Handle reboot confirmation stage after OTA download.
+ *
+ * @param[in]  status    : Pointer to OTA runtime state.
+ *
+ * @param[in]  ee_status : Pointer to EEPROM OTA state.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_download_end_handler(ota_download_status_t *status,
                               ee_os_status_t        *ee_status)
 {
@@ -276,6 +385,17 @@ void ota_download_end_handler(ota_download_status_t *status,
     }
 }
 
+/**
+ * @brief
+ * OTA state machine task entry.
+ *
+ * @param[in]  argument  : RTOS thread argument, not used.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_task_runnable(void *argument)
 {
     /* USER CODE BEGIN key_task_runnable */
@@ -290,13 +410,24 @@ void ota_task_runnable(void *argument)
     ee_os_status_t        ee_status  = EE_OTA_NO_APP_UPDATE;
     ee_WriteBytes((uint8_t *)&ee_status, EE_OTA_NO_APP_UPDATE, 1);
 
-    /* Infinite loop */
+    /* Infinite loop. */
     for (;;)
     {
         ota_download_state_machine[ota_status](&ota_status, &ee_status);
     }
 }
 
+/**
+ * @brief
+ * Download worker task, writes Ymodem payload into external flash.
+ *
+ * @param[in]  argument  : RTOS thread argument, not used.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void DownloadAppData_task_runnable(void *argument)
 {
     BaseType_t          retval = pdFALSE;

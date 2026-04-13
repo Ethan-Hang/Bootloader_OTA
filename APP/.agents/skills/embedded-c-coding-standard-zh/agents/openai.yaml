@@ -1,0 +1,4 @@
+interface:
+  display_name: "嵌入式 C 标准"
+  short_description: "按规范处理嵌入式 C 代码"
+  default_prompt: "使用 $embedded-c-coding-standard-zh 按嵌入式C 语言编码规范编写、重构或审查嵌入式 C 代码。"

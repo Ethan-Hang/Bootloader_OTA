@@ -1,26 +1,20 @@
 /******************************************************************************
- * Copyright (C) 2024 EternalChip, Inc.(Gmbh) or its affiliates.
- *
- * All Rights Reserved.
- *
- * @file W25Q_Handler.h
+ * @file w25qxx_handler.c
  *
  * @par dependencies
- * - W25Q_Handler.h
+ * - w25qxx_handler.h
+ * - w25qxx.h
  *
- * @author Jack | R&D Dept. | EternalChip 立芯嵌入式
+ * @author Ethan-Hang
  *
- * @brief Functions related to reading and writing in the chip's flash area.
+ * @brief
+ * W25Q64 buffered read and write helper implementation.
  *
- * Processing flow:
- *
- * call directly.
- *
- * @version V1.0 2024-09-13
+ * @version V1.0 2026-4-3
  *
  * @note 1 tab == 4 spaces!
- *
- *****************************************************************************/
+ ******************************************************************************
+ */
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __W25Q_HANDLER_H
 #define __W25Q_HANDLER_H
@@ -51,9 +45,70 @@ typedef struct
 #define EXTERN_Flash
 
 /* Exported functions ------------------------------------------------------- */
+/**
+ * @brief
+ * Initialize W25Q64 handler runtime context.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void W25Q64_Init(void);
+
+/**
+ * @brief
+ * Erase whole W25Q64 chip.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, 1 on failure.
+ * */
 u8   W25Q64_EraseChip(void);
+
+/**
+ * @brief
+ * Append data stream into W25Q64 with internal staging.
+ *
+ * @param[in]  data   : Source data pointer.
+ *
+ * @param[in]  length : Data length in bytes.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on completion.
+ * */
 u8   W25Q64_WriteData(u8 *data, u32 length);
+
+/**
+ * @brief
+ * Flush remaining staged data into flash.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on completion.
+ * */
 u8   W25Q64_WriteData_End(void);
+
+/**
+ * @brief
+ * Read next data block from flash.
+ *
+ * @param[in]  data   : Destination buffer.
+ *
+ * @param[out] length : Returned data length for this call.
+ *
+ * @return
+ * 0 success, 1 no data, 2 read failure.
+ * */
 u8   W25Q64_ReadData(u8 *data, u16 *length);
 #endif /* __FLASH_H */

@@ -1,3 +1,34 @@
+/******************************************************************************
+ * @file main.c
+ *
+ * @par dependencies
+ * - main.h
+ * - gpio.h
+ * - spi.h
+ * - uart.h
+ * - tim.h
+ * - bootmanager.h
+ * - at24cxx_driver.h
+ * - w25qxx_Handler.h
+ * - elog.h
+ * - Debug.h
+ *
+ * @author Ethan-Hang
+ *
+ * @brief
+ * Bootloader main entry and OTA state polling loop.
+ *
+ * Processing flow:
+ * 1. Initialize clock and basic peripherals.
+ * 2. Initialize log system and storage devices.
+ * 3. Poll OTA state machine and handle APP jump logic.
+ *
+ * @version V1.0 2026-4-2
+ *
+ * @note 1 tab == 4 spaces!
+ *
+ *****************************************************************************/
+
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "gpio.h"
@@ -25,10 +56,10 @@ RCC_ClocksTypeDef    RCC_Clocks;
 uint8_t              tab_1024[1024];
 volatile bool        elog_init_flag = false;
 
-/* Keep jump flag across soft reset by placing it in UNINIT memory. */
+/* Keep jump flag across soft reset in NO_INIT memory section. */
 uint32_t g_jumpinit __attribute__((section("NO_INIT"), zero_init));
 
-/* Note: g_buf is no longer needed - OTA now writes directly to Flash */
+/* Note: g_buf is no longer needed, OTA writes directly to flash. */
 /* Private function prototypes -----------------------------------------------*/
 
 
@@ -47,9 +78,9 @@ uint8_t key_scan(void)
 
 /* Private functions ---------------------------------------------------------*/
 /**
- * @brief  Main program
- * @param  None
- * @retval None
+ * @brief  Main program.
+ * @param  None.
+ * @retval None.
  */
 int main(void)
 {
@@ -61,8 +92,7 @@ int main(void)
 
 
     SCB->VTOR = 0x08000000 | 0x00000000;
-    /* Enable Clock Security System(CSS): this will generate an NMI exception
-     when HSE clock fails *****************************************************/
+    /* Enable Clock Security System(CSS), it generates NMI on HSE failure. */
     RCC_ClockSecuritySystemCmd(ENABLE);
 
     /* SysTick end of count event each 1ms */
@@ -70,8 +100,7 @@ int main(void)
     RCC_GetClocksFreq(&RCC_Clocks);
     SysTick_Config(RCC_Clocks.HCLK_Frequency / 1000);
 
-    /* Add your application code here */
-    /* Insert 50 ms delay */
+    /* Wait 50 ms before peripheral initialization. */
     delay_ms(50);
 
     GPIO_Config();
@@ -107,7 +136,7 @@ int main(void)
 
     DEBUG_OUT(i, MAIN_LOG_TAG, "this is bootloader");
 
-    /* Infinite loop */
+    /* Infinite loop. */
     while (1)
     {
         OTA_StateManager();
@@ -137,9 +166,9 @@ void TimingDelay_Decrement(void)
 /**
  * @brief  Reports the name of the source file and the source line number
  *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
+ * @param  file: pointer to source file name.
+ * @param  line: assert_param error source line number.
+ * @retval None.
  */
 void assert_failed(uint8_t *file, uint32_t line)
 {

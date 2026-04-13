@@ -1,3 +1,35 @@
+/******************************************************************************
+ * @file bootmanager.c
+ *
+ * @par dependencies
+ * - stddef.h
+ * - string.h
+ * - stm32f4xx.h
+ * - iwdg.h
+ * - main.h
+ * - bootmanager.h
+ * - at24cxx_driver.h
+ * - w25qxx_Handler.h
+ * - ymodem.h
+ * - Debug.h
+ * 
+ * @author Ethan-Hang
+ *
+ * @brief
+ * OTA state manager and image switch logic.
+ *
+ * Processing flow:
+ * 1. Read OTA state from EEPROM.
+ * 2. Receive and decrypt image to external BLOCK_2.
+ * 3. Copy image from external flash to internal APP flash.
+ * 4. Jump to APP and complete rollback flow when needed.
+ *
+ * @version V1.0 2026-4-2
+ *
+ * @note 1 tab == 4 spaces!
+ *
+ *****************************************************************************/
+
 #include <stddef.h>
 #include <string.h>
 
@@ -9,14 +41,13 @@
 #include "at24cxx_driver.h"
 #include "w25qxx_Handler.h"
 
-#include "elog.h"
 #include "ymodem.h"
 
 #include "Debug.h"
 
 extern uint8_t       tab_1024[1024];
 extern uint8_t       key_scan(void);
-extern uint32_t g_jumpinit __attribute__((section("NO_INIT"), zero_init));
+extern uint32_t          g_jumpinit;
 extern volatile bool elog_init_flag;
 
 static const uint8_t s_iv_default[16] = {0x31, 0x32, 0x31, 0x32, 0x31, 0x32,
@@ -35,11 +66,33 @@ static uint8_t s_mem_read_buffer[4096];
 
 static bool s_iwdg_started = false;
 
+/**
+ * @brief
+ * Feed the OTA watchdog counter.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 static void ota_watchdog_feed(void)
 {
     IWDG_ReloadCounter();
 }
 
+/**
+ * @brief
+ * Start OTA watchdog once and feed it.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 static void ota_watchdog_start(void)
 {
     if (!s_iwdg_started)
@@ -56,11 +109,35 @@ static void ota_watchdog_start(void)
     ota_watchdog_feed();
 }
 
+/**
+ * @brief
+ * Trigger software reset by NVIC.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 static void soft_reset(void)
 {
     __NVIC_SystemReset();
 }
 
+/**
+ * @brief
+ * Copy one external flash block to internal APP flash.
+ *
+ * @param[in] block_index : Source block index in external flash.
+ *
+ * @param[in] tag : Log label for this copy path.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, -1 on failure.
+ * */
 static int8_t ex_block_to_app(uint8_t block_index, const char *tag)
 {
     uint32_t  flash_des        = ApplicationAddress;
@@ -122,6 +199,19 @@ static int8_t ex_block_to_app(uint8_t block_index, const char *tag)
     }
 }
 
+/**
+ * @brief
+ * Apply OTA image, update state, and jump to APP.
+ *
+ * @param[in] file_size : Downloaded file size in bytes.
+ *
+ * @param[in] first_boot : True when device has no valid APP.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void ota_apply_update(int32_t file_size, bool first_boot)
 {
     uint32_t current_app_size = 0;
@@ -222,7 +312,7 @@ void ota_apply_update(int32_t file_size, bool first_boot)
 
     jump_to_app();
 
-    // no valid app to run, use backup if available
+    // No valid APP to run, use backup if available.
     if (!first_boot)
     {
         ota_watchdog_feed();
@@ -237,6 +327,17 @@ void ota_apply_update(int32_t file_size, bool first_boot)
     jump_to_app();
 }
 
+/**
+ * @brief
+ * Disable peripherals and interrupts before APP jump.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 static void disable_all_peripherals(void)
 {
     __disable_irq();
@@ -261,6 +362,17 @@ static void disable_all_peripherals(void)
     RCC_DeInit();
 }
 
+/**
+ * @brief
+ * Jump to APP reset handler if vector table is valid.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void jump_to_app(void)
 {
     uint32_t  sp            = *(__IO uint32_t *)(ApplicationAddress);
@@ -291,6 +403,17 @@ void jump_to_app(void)
     }
 }
 
+/**
+ * @brief
+ * Decrypt image from BLOCK_1 and write it to BLOCK_2.
+ *
+ * @param[in] fl_size : Encrypted file size in bytes.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, -1 on failure.
+ * */
 int8_t exA_to_exB_AES(int32_t fl_size)
 {
     uint8_t  temp[16];
@@ -420,6 +543,17 @@ int8_t exA_to_exB_AES(int32_t fl_size)
     return 0;
 }
 
+/**
+ * @brief
+ * Backup current internal APP to external BLOCK_1.
+ *
+ * @param[in] fl_size : APP image size in bytes.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, -1 on failure.
+ * */
 int8_t app_to_exA(uint32_t fl_size)
 {
     DEBUG_OUT(d, OTA_LOG_TAG,
@@ -439,6 +573,17 @@ int8_t app_to_exA(uint32_t fl_size)
     return 0;
 }
 
+/**
+ * @brief
+ * Copy decrypted image in BLOCK_2 to internal APP flash.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, -1 on failure.
+ * */
 int8_t exB_to_app(void)
 {
     DEBUG_OUT(d, OTA_LOG_TAG, "Start to copy external flash B to app");
@@ -446,6 +591,17 @@ int8_t exB_to_app(void)
     return ex_block_to_app(BLOCK_2, "exB_to_app");
 }
 
+/**
+ * @brief
+ * Restore backup image in BLOCK_1 to internal APP flash.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * 0 on success, -1 on failure.
+ * */
 int8_t exA_to_app(void)
 {
     DEBUG_OUT(d, OTA_LOG_TAG, "Start to copy external flash A to app");
@@ -453,6 +609,17 @@ int8_t exA_to_app(void)
     return ex_block_to_app(BLOCK_1, "exA_to_app");
 }
 
+/**
+ * @brief
+ * Execute OTA state machine according to EEPROM state.
+ *
+ * @param[in] : None.
+ *
+ * @param[out] : None.
+ *
+ * @return
+ * None.
+ * */
 void OTA_StateManager(void)
 {
     uint8_t         ota_state      = EE_OTA_NO_APP_UPDATE;
@@ -520,7 +687,7 @@ void OTA_StateManager(void)
         }
         else
         {
-            // Set flag for main to jump to app
+            // Set flag for main to jump to APP.
             g_jumpinit = 0x55AA55AA;
             soft_reset();
         }

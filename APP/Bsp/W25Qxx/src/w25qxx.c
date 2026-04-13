@@ -1,3 +1,21 @@
+/**
+ ******************************************************************************
+ * @file w25qxx.c
+ *
+ * @par dependencies
+ * - w25qxx.h
+ *
+ * @author Ethan-Hang
+ *
+ * @brief
+ * Low-level W25Q SPI command implementation.
+ *
+ * @version V1.0 2026-4-3
+ *
+ * @note 1 tab == 4 spaces!
+ ******************************************************************************
+ */
+
 #include "w25qxx.h"
 
 #define delay(ms)  HAL_Delay(ms)
@@ -94,15 +112,16 @@ uint8_t W25Qx_WriteEnable(void)
 }
 
 /**
-  * @brief  Read Manufacture/Device ID.
-    * @param  return value address
-/   ����ֵ����:
-/   0XEF13,��ʾоƬ�ͺ�ΪW25Q80
-/   0XEF14,��ʾоƬ�ͺ�ΪW25Q16
-/   0XEF15,��ʾоƬ�ͺ�ΪW25Q32
-/   0XEF16,��ʾоƬ�ͺ�ΪW25Q64
-  * @retval None
-  */
+ * @brief  Read manufacturer and device ID.
+ * @param  ID: Pointer to returned JEDEC ID value.
+ * @retval None
+ *
+ * ID map:
+ * - 0xEF13: W25Q80
+ * - 0xEF14: W25Q16
+ * - 0xEF15: W25Q32
+ * - 0xEF16: W25Q64
+ */
 void W25Qx_Read_ID(uint16_t *ID)
 {
     uint8_t idt[2];
