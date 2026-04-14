@@ -166,6 +166,7 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
     HAL_UART_Transmit(&huart1, (uint8_t *)"Waiting for download request...\r\n",
                       33, HAL_MAX_DELAY);
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_otacmd, 4);
+    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
 
     uint16_t rec_length = 0;
     xQueueReceive(Q_YmodemReclength, &rec_length, portMAX_DELAY);
@@ -227,11 +228,13 @@ void ota_wait_for_download_req_handler(ota_download_status_t *status,
         }
         else
         {
+            HAL_UART_AbortReceive(&huart1);
             *status = OTA_WAIT_FOR_DOWNLOAD_REQ;
         }
     }
     else
     {
+        HAL_UART_AbortReceive(&huart1);
         *status = OTA_WAIT_FOR_DOWNLOAD_REQ;
     }
 
@@ -333,6 +336,7 @@ void ota_wait_req_handler(ota_download_status_t *status,
                       32, HAL_MAX_DELAY);
     // Start DMA reception to receive post-download update command.
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_otacmd, 4);
+    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
 
     uint16_t rec_length = 0;
     xQueueReceive(Q_YmodemReclength, &rec_length, portMAX_DELAY);
@@ -347,9 +351,15 @@ void ota_wait_req_handler(ota_download_status_t *status,
                            "press key to reboot and apply update\r\n",
                 53, HAL_MAX_DELAY);
         }
+        else
+        {
+            HAL_UART_AbortReceive(&huart1);
+            *status = OTA_WAIT_REQ;
+        }
     }
     else
     {
+        HAL_UART_AbortReceive(&huart1);
         *status = OTA_WAIT_REQ;
     }
 

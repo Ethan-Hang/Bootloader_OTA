@@ -120,9 +120,9 @@ int main(void)
     ee_CheckOk();
 
 //   ee_Erase();
-//    W25Q64_EraseChip();
-//    DEBUG_OUT(i, EEPROM_LOG_TAG,
-//              "EEPROM and external flash erased successfully");
+//   W25Q64_EraseChip();
+//   DEBUG_OUT(i, EEPROM_LOG_TAG,
+//             "EEPROM and external flash erased successfully");
 
     W25Q64_Init();
 

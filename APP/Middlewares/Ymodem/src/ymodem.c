@@ -196,6 +196,7 @@ static int32_t Receive_Byte(uint8_t *c, uint16_t length, uint32_t timeout)
             return YMODEM_PKT_TIMEOUT;
         }
     }
+    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
 
     retval = xQueueReceive(Q_YmodemReclength, &s_u16_YmodRecLength,
                            pdMS_TO_TICKS(timeout));

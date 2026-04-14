@@ -128,7 +128,7 @@ void StartDefaultTask(void *argument)
     for (;;)
     {
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-        osDelay(500);
+        osDelay(100);
     }
     /* USER CODE END StartDefaultTask */
 }
@@ -143,17 +143,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
     if (USART1 == huart->Instance)
     {
-        if (1 == __HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE))
+        t_u16_rec_len = Size;
+        retval = xQueueOverwriteFromISR(Q_YmodemReclength, &t_u16_rec_len,
+                                        &xHigherPriorityTaskWoken);
+        if (pdFALSE != retval)
         {
-            t_u16_rec_len = Size;
-            retval = xQueueOverwriteFromISR(Q_YmodemReclength, &t_u16_rec_len,
-                                            &xHigherPriorityTaskWoken);
-            if (pdFALSE != retval)
-            {
-                xHigherPriorityTaskWoken = pdTRUE;
-            }
-            HAL_UART_DMAStop(&huart1);
+            xHigherPriorityTaskWoken = pdTRUE;
         }
+        HAL_UART_DMAStop(&huart1);
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
